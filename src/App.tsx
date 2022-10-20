@@ -23,17 +23,9 @@ function RoomList() {
 
     return (
         <div>
-            whee
-            {JSON.stringify(rooms)}
+            {Object.values(rooms).map(room =><button>{room.name}</button>)}
         </div>
     )
 }
 
 export default App;
-//
-// (async () => {
-//     console.log('creating client')
-//     const matrix = await createClient()
-//     console.log(matrix)
-//     matrix.roomList().subscribe(value => console.log(value))
-// })()

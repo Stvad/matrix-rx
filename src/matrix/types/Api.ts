@@ -70,7 +70,7 @@ export interface PreviewUrl_ {
 	'og:site_name': string;
 }
 
-export interface MessageEvent_ {
+export interface MatrixEvent {
 	event_id: string;
 	content: MessageEventContent_;
 	type: MessageEventType;
@@ -80,6 +80,11 @@ export interface MessageEvent_ {
 	unsigned?: { prev_content: MessageEventContent_; transaction_id: string; membership: RoomPhase };
 	redacts?: string;
 	_redacted?: boolean;
+}
+
+export interface RoomNameEvent extends MatrixEvent{
+	type: 'm.room.name'
+	content: { name: string }
 }
 
 export interface ThumbnailInfo_ {
@@ -313,14 +318,14 @@ export interface SyncFilter_ {
 	presence: EventsFilter_;
 }
 
-export interface RoomSummary_ {
+export interface RoomSummary {
 	'm.joined_member_count': number;
 	'm.invited_member_count': number;
 	'm.heroes': string[];
 }
 
-export interface RoomTimeline_ {
-	events: MessageEvent_[];
+export interface RoomTimeline {
+	events: MatrixEvent[];
 	limited: boolean;
 	prev_batch: string;
 }
@@ -334,7 +339,7 @@ export interface DirectorySearch_ {
 	}[];
 }
 
-export interface EphemeralEvent_ {
+export interface EphemeralEvent {
 	events: {
 		type: EphemeralEventType;
 		content: {
@@ -349,22 +354,22 @@ export interface EphemeralEvent_ {
 	}[];
 }
 
-export interface RoomData_ {
+export interface RoomData {
 	state: {
-		events: MessageEvent_[];
+		events: MatrixEvent[];
 	};
 	invite_state: {
-		events: MessageEvent_[];
+		events: MatrixEvent[];
 	};
-	summary: RoomSummary_;
-	ephemeral: EphemeralEvent_;
-	timeline: RoomTimeline_;
+	summary: RoomSummary;
+	ephemeral: EphemeralEvent;
+	timeline: RoomTimeline;
 	unread_notifications: {
 		notification_count: number;
 	};
 }
 
-export interface SyncResponse_ {
+export interface SyncResponse {
 	next_batch?: string;
 	account_data?: {
 		events: {
@@ -373,12 +378,12 @@ export interface SyncResponse_ {
 		}[];
 	};
 	rooms?: {
-		invite: { [id: string]: RoomData_ };
-		join: { [id: string]: RoomData_ };
-		leave: { [id: string]: RoomData_ };
+		invite: { [id: string]: RoomData };
+		join: { [id: string]: RoomData };
+		leave: { [id: string]: RoomData };
 	};
 	presence?: {
-		events: MessageEvent_[];
+		events: MatrixEvent[];
 	};
 }
 

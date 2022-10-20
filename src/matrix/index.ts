@@ -1,7 +1,7 @@
 import {catchError, expand, map, Observable, of, scan, tap} from 'rxjs'
 import {ApiClient, PREFIX_REST} from './api/ApiClient'
 import {ajax} from 'rxjs/internal/ajax/ajax'
-import {EventsFilter_, RoomFilter_, SyncFilter_} from './types/Api'
+import {EventsFilter_, MatrixEvent, RoomData, RoomFilter_, RoomNameEvent, SyncFilter_, SyncResponse} from './types/Api'
 
 interface Room {
 }
@@ -113,17 +113,33 @@ function getInitialFilter() {
     return filter_
 }
 
-export class Matrix {
-    constructor(
-        private apiClient: ApiClient,
-        private credentials: any,
-        private serverUrl: string = `https://matrix-client.matrix.org`) {
-        // this.observeRoom = observeRoom;
+function extractCoreRoomsInfo(rooms: { [id: string]: RoomData }) {
+    function getRoomName(events: MatrixEvent[]) {
+        const nameEvent = events.findLast(e => e.type === 'm.room.name') as RoomNameEvent | undefined
+        return nameEvent?.content.name ?? ''
     }
 
-    sync(): Observable<any> {
-        const callSync = (syncToken?: string) => {
-            const filter = syncToken ? getInitialFilter() : getIncrementalFilter()
+    function extractRoomInfo(id: string) {
+        const room = rooms[id]
+        // todo members
+        return {
+            id,
+            name: getRoomName([...room.state.events, ...room.timeline.events]),
+        }
+    }
+
+    return Object.fromEntries(Object.keys(rooms).map(it => [it, extractRoomInfo(it)]))
+}
+
+export class Matrix {
+    constructor(
+        private credentials: any,
+        private serverUrl: string = `https://matrix-client.matrix.org`) {
+    }
+
+    sync(): Observable<SyncResponse> {
+        const callSync = (syncToken?: string): Observable<SyncResponse> => {
+            const filter = syncToken ? getIncrementalFilter() : getInitialFilter()
 
             const params = new URLSearchParams({
                 timeout: syncTimeout.toString(),
@@ -145,9 +161,11 @@ export class Matrix {
 
     roomList(): Observable<Room[]> {
         return this.sync().pipe(
+            tap(console.log),
             map(it => it.rooms?.join ?? {}),
+            map(extractCoreRoomsInfo),
             scan((acc, curr) => {
-                return {...curr, ...acc}
+                return {...acc, ...curr}
             }),
 
             tap(console.log),
@@ -164,5 +182,5 @@ export const createClient = async () => {
     const apiClient = new ApiClient()
     // todo don't
     const creds = await apiClient.login('metavlad', '', 'matrix.org')
-    return new Matrix(apiClient, creds)
+    return new Matrix(creds)
 }

@@ -9,14 +9,14 @@ import {
 	PusherParam_,
 	NewRoomOptions_,
 	GetPublicRoomsResponse_,
-	MessageEvent_,
+	MatrixEvent,
 	StateEventContent_,
 	StateEventType,
 	GetJoinedMembersResponse_,
 	GetRoomMembersResponse_,
 	MessageEventContent_,
 	SyncFilter_,
-	SyncResponse_,
+	SyncResponse,
 	PushRulesGetResponse_,
 	DirectorySearch_,
 } from '../types/Api';
@@ -70,10 +70,10 @@ export default class RestClient extends GenericRestClient {
 		filter: SyncFilter_,
 		syncTimeout: number,
 		fullState: boolean
-	): Promise<SyncResponse_> {
+	): Promise<SyncResponse> {
 		const filter_ = JSON.stringify(filter);
 
-		return this.performApiGet<SyncResponse_>(
+		return this.performApiGet<SyncResponse>(
 			'sync?timeout=' +
 				syncTimeout +
 				'&filter=' +
@@ -224,10 +224,10 @@ export default class RestClient extends GenericRestClient {
 		from?: string,
 		to?: string,
 		filter?: { types: string[] }
-	): Promise<{ chunk: MessageEvent_[]; end: string }> {
+	): Promise<{ chunk: MatrixEvent[]; end: string }> {
 		const filter_ = JSON.stringify(filter);
 
-		return this.performApiGet<{ chunk: MessageEvent_[]; end: string }>(
+		return this.performApiGet<{ chunk: MatrixEvent[]; end: string }>(
 			'rooms/' +
 				roomId +
 				'/messages?' +

@@ -22,7 +22,7 @@ import {
 	PusherParam_,
 	PushRulesGetResponse_,
 	DirectorySearch_,
-	MessageEvent_,
+	MatrixEvent,
 } from '../types/Api';
 import { RoomSummary } from '../types/RoomSummary'
 import EventUtils from '../utils/EventUtils';
@@ -371,7 +371,7 @@ export class ApiClient {
 		messageCountAdd: number,
 		from: string,
 		previousEventTime: number
-	): Promise<{ events: MessageEvent[]; endToken: string; timelineLimited: boolean }> {
+	): Promise<{ events: MatrixEvent[]; endToken: string; timelineLimited: boolean }> {
 		let filter: { types: string[] };
 		if (roomType === 'community') {
 			filter = {
@@ -402,7 +402,7 @@ export class ApiClient {
 		roomId: string,
 		messageCountAdd: number,
 		from: string
-	): Promise<{ events: MessageEvent_[]; endToken: string; timelineLimited: boolean }> {
+	): Promise<{ events: MatrixEvent[]; endToken: string; timelineLimited: boolean }> {
 		const filter = {
 			types: ['m.room.message'],
 			contains_url: true,

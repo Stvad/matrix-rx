@@ -304,16 +304,17 @@ export interface EventsFilter_ {
 	limit?: number;
 }
 
-export interface RoomFilter_ {
+export interface RoomFilter {
 	timeline: EventsFilter_;
 	state: EventsFilter_;
 	ephemeral: EventsFilter_;
 	account_data: EventsFilter_;
 	include_leave: boolean;
+	rooms?: string[];
 }
 
-export interface SyncFilter_ {
-	room: RoomFilter_;
+export interface SyncFilter {
+	room: RoomFilter;
 	account_data: EventsFilter_;
 	presence: EventsFilter_;
 }

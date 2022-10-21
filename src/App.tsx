@@ -6,9 +6,9 @@ import {bind, Subscribe} from '@react-rxjs/core'
 
 const client = await createClient()
 const [useRooms, rooms$] = bind(client.roomList())
+const [useRoom, room$] = bind(client.room("!AtyuVyqNFWfJMwlbwR:matrix.org"))
 
 function App() {
-
   return (
     <div className="App">
         <Subscribe>
@@ -20,10 +20,15 @@ function App() {
 
 function RoomList() {
     const rooms = useRooms()
+    const room = useRoom()
 
     return (
         <div>
-            {Object.values(rooms).map(room =><button>{room.name}</button>)}
+            <div>{Object.values(rooms).map(r => <button>{r?.name}</button>)}</div>
+            <div>
+                {room?.events?.map(it => <div>{it?.content?.body}</div>)}
+
+            </div>
         </div>
     )
 }

@@ -15,7 +15,7 @@ import {
 	GetJoinedMembersResponse_,
 	GetRoomMembersResponse_,
 	MessageEventContent_,
-	SyncFilter_,
+	SyncFilter,
 	SyncResponse,
 	PushRulesGetResponse_,
 	DirectorySearch_,
@@ -67,7 +67,7 @@ export default class RestClient extends GenericRestClient {
 
 	public getSyncFiltered(
 		syncToken: string,
-		filter: SyncFilter_,
+		filter: SyncFilter,
 		syncTimeout: number,
 		fullState: boolean
 	): Promise<SyncResponse> {

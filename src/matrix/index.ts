@@ -1,7 +1,16 @@
 import {catchError, expand, map, Observable, of, scan, tap} from 'rxjs'
 import {ApiClient, PREFIX_REST} from './api/ApiClient'
 import {ajax} from 'rxjs/internal/ajax/ajax'
-import {EventsFilter_, MatrixEvent, RoomData, RoomFilter_, RoomNameEvent, SyncFilter_, SyncResponse} from './types/Api'
+import {
+    EventsFilter_,
+    MatrixEvent,
+    MessageEventType,
+    RoomData,
+    RoomFilter,
+    RoomNameEvent,
+    SyncFilter,
+    SyncResponse,
+} from './types/Api'
 
 interface Room {
 }
@@ -9,31 +18,34 @@ interface Room {
 export const MESSAGE_COUNT_INC = 100
 const syncTimeout = 10000
 
-function getIncrementalFilter() {
+const roomEventTypesToLoad: MessageEventType[] = [
+    'm.room.third_party_invite',
+    'm.room.redaction',
+    'm.room.message',
+    'm.room.member',
+    'm.room.name',
+    'm.room.avatar',
+    'm.room.canonical_alias',
+    'm.room.join_rules',
+    'm.room.power_levels',
+    'm.room.topic',
+    'm.room.encrypted',
+    'm.room.create',
+]
+
+function getIncrementalFilter(roomId?: string) {
 
     const accountFilterRoom: EventsFilter_ = {
         limit: 0,
         types: [],
     }
 
-    const roomFilter: RoomFilter_ = {
+    const roomFilter: RoomFilter = {
+        rooms: roomId ? [roomId] : undefined,
         timeline: {
             limit: MESSAGE_COUNT_INC,
             lazy_load_members: true,
-            types: [
-                'm.room.third_party_invite',
-                'm.room.redaction',
-                'm.room.message',
-                'm.room.member',
-                'm.room.name',
-                'm.room.avatar',
-                'm.room.canonical_alias',
-                'm.room.join_rules',
-                'm.room.power_levels',
-                'm.room.topic',
-                'm.room.encrypted',
-                'm.room.create',
-            ],
+            types: roomEventTypesToLoad,
         },
         state: {
             lazy_load_members: true,
@@ -60,7 +72,7 @@ function getIncrementalFilter() {
         types: ['m.direct'],
     }
 
-    const filter: SyncFilter_ = {
+    const filter: SyncFilter = {
         room: roomFilter,
         account_data: accountFilter,
         presence: {types: ['m.presence']},
@@ -68,16 +80,17 @@ function getIncrementalFilter() {
     return filter
 }
 
-function getInitialFilter() {
+function getInitialFilter(roomId?: string) {
     const accountFilterRoom_: EventsFilter_ = {
         limit: 0,
         types: [],
     }
 
-    const roomFilter_: RoomFilter_ = {
+    const roomFilter_: RoomFilter = {
+        rooms: roomId ? [roomId] : undefined,
         timeline: {
-            limit: 0,
-            types: [],
+            limit: roomId ? 15 : 0,
+            types: roomId ? roomEventTypesToLoad : [],
         },
         state: {
             lazy_load_members: true,
@@ -105,7 +118,7 @@ function getInitialFilter() {
         types: ['m.direct', 'm.push_rules'],
     }
 
-    const filter_: SyncFilter_ = {
+    const filter_: SyncFilter = {
         room: roomFilter_,
         account_data: accountFilter_,
         presence: {types: ['m.presence']},
@@ -122,9 +135,11 @@ function extractCoreRoomsInfo(rooms: { [id: string]: RoomData }) {
     function extractRoomInfo(id: string) {
         const room = rooms[id]
         // todo members
+        const loadedRoomEvents = [...room.state.events, ...room.timeline.events]
         return {
             id,
-            name: getRoomName([...room.state.events, ...room.timeline.events]),
+            events: loadedRoomEvents,
+            name: getRoomName(loadedRoomEvents),
         }
     }
 
@@ -137,9 +152,9 @@ export class Matrix {
         private serverUrl: string = `https://matrix-client.matrix.org`) {
     }
 
-    sync(): Observable<SyncResponse> {
+    sync(roomId?: string): Observable<SyncResponse> {
         const callSync = (syncToken?: string): Observable<SyncResponse> => {
-            const filter = syncToken ? getIncrementalFilter() : getInitialFilter()
+            const filter = syncToken ? getIncrementalFilter(roomId) : getInitialFilter(roomId)
 
             const params = new URLSearchParams({
                 timeout: syncTimeout.toString(),
@@ -157,6 +172,28 @@ export class Matrix {
 
         // todo add retry
         return callSync().pipe(expand(r => callSync(r.next_batch)))
+    }
+
+    room(roomId: string): Observable<Room> {
+        return this.sync(roomId).pipe(
+            tap(console.log),
+            map(it => it.rooms?.join ?? {}),
+            map(extractCoreRoomsInfo),
+            map(it => it[roomId]),
+            scan((acc, curr = {events: []}) => {
+                console.log({acc, curr})
+                return {
+                    ...acc,
+                    ...curr,
+                    events: [...acc.events, ...curr.events],
+                }
+            }),
+
+            catchError(error => {
+                console.log('error: ', error)
+                return of(error)
+            }),
+        )
     }
 
     roomList(): Observable<Room[]> {
@@ -180,7 +217,6 @@ export class Matrix {
 
 export const createClient = async () => {
     const apiClient = new ApiClient()
-    // todo don't
-    const creds = await apiClient.login('metavlad', '', 'matrix.org')
+    const creds = await apiClient.login(import.meta.env.VITE_TEST_USER, import.meta.env.VITE_TEST_PASS, 'matrix.org')
     return new Matrix(creds)
 }

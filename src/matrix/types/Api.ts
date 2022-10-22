@@ -72,12 +72,12 @@ export interface PreviewUrl_ {
 
 export interface MatrixEvent {
 	event_id: string;
-	content: MessageEventContent_;
+	content: MessageEventContent;
 	type: MessageEventType;
 	origin_server_ts: number;
 	sender: string;
 	state_key?: string;
-	unsigned?: { prev_content: MessageEventContent_; transaction_id: string; membership: RoomPhase };
+	unsigned?: { prev_content: MessageEventContent; transaction_id: string; membership: RoomPhase };
 	redacts?: string;
 	_redacted?: boolean;
 }
@@ -103,7 +103,7 @@ export interface MessageEventContentInfo_ {
 	thumbnail_info?: ThumbnailInfo_;
 }
 
-export interface MessageEventContent_ {
+export interface MessageEventContent {
 	msgtype?: string;
 	body?: string;
 	info?: MessageEventContentInfo_;

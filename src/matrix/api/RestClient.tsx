@@ -14,7 +14,7 @@ import {
 	StateEventType,
 	GetJoinedMembersResponse_,
 	GetRoomMembersResponse_,
-	MessageEventContent_,
+	MessageEventContent,
 	SyncFilter,
 	SyncResponse,
 	PushRulesGetResponse_,
@@ -107,7 +107,7 @@ export default class RestClient extends GenericRestClient {
 		return this.performApiPut<void>('pushrules/global/room/' + roomId, content);
 	}
 
-	public sendMessage(roomId: string, messageContent: MessageEventContent_, tempId: string): Promise<void> {
+	public sendMessage(roomId: string, messageContent: MessageEventContent, tempId: string): Promise<void> {
 		return this.performApiPut<void>('rooms/' + roomId + '/send/m.room.message/' + tempId, messageContent);
 	}
 

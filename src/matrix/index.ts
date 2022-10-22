@@ -12,6 +12,11 @@ import {
     SyncResponse,
 } from './types/Api'
 
+import {Omnibus} from 'omnibus-rxjs'
+
+const bus = new Omnibus<MatrixEvent>()
+// bus.listen(()=> true, console.log)
+
 interface Room {
 }
 
@@ -175,11 +180,25 @@ export class Matrix {
     }
 
     room(roomId: string): Observable<Room> {
+        /*
+        * consume update events that pertain to the already existing events (have relationships)
+        *
+        * */
         return this.sync(roomId).pipe(
             tap(console.log),
             map(it => it.rooms?.join ?? {}),
             map(extractCoreRoomsInfo),
             map(it => it[roomId]),
+            map(it => {
+                if (!it?.events) return  it
+
+                const eventObservables = it.events.map(it => this.event(it.event_id))
+                setTimeout(() => it?.events.forEach(it => bus.trigger(it)), 2000)
+                return {
+                    ...it,
+                    events: eventObservables,
+                }
+            }),
             scan((acc, curr = {events: []}) => {
                 console.log({acc, curr})
                 return {
@@ -212,6 +231,31 @@ export class Matrix {
                 return of(error)
             }),
         )
+    }
+
+    event(eventId: string): Observable<MatrixEvent> {
+        const mergeEditEvent = (event: MatrixEvent, edit: MatrixEvent) => {
+            if (event.type !== 'm.room.message') {
+                return event
+            }
+
+            return {
+                ...event,
+                content: {
+                    ...event.content,
+                    ...edit.content['m.new_content'],
+                },
+                edited: true,
+            }
+        }
+
+        return bus.query(it => it.event_id === eventId)
+            .pipe(
+                // tap((it)=>console.log('event', it)),
+                scan((acc, curr) => {
+                        return mergeEditEvent(acc, curr)
+                    }),
+            )
     }
 }
 

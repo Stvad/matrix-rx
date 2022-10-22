@@ -18,7 +18,7 @@ import {
 	GetPublicRoomsResponse_,
 	StateEventContent_,
 	StateEventType,
-	MessageEventContent_,
+	MessageEventContent,
 	PusherParam_,
 	PushRulesGetResponse_,
 	DirectorySearch_,
@@ -479,7 +479,7 @@ export class ApiClient {
 		}
 	}
 
-	public sendMessage(roomId: string, messageContent: MessageEventContent_, tempId: string): Promise<void> {
+	public sendMessage(roomId: string, messageContent: MessageEventContent, tempId: string): Promise<void> {
 		const restClient = new RestClient(this.credentials.accessToken, this.credentials.homeServer, PREFIX_REST);
 
 		return restClient.sendMessage(roomId, messageContent, tempId);

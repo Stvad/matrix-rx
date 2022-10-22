@@ -1,5 +1,4 @@
 import {useEffect, useState} from 'react'
-import reactLogo from './assets/react.svg'
 import './App.css'
 import {createClient} from './matrix'
 import {bind, Subscribe} from '@react-rxjs/core'
@@ -18,21 +17,20 @@ function App() {
     )
 }
 
-function Event({eventObservable}) {
+function Event({observable}) {
     const [event, setEvent] = useState(null)
     useEffect(() => {
-        const [useEvent, event$] = bind(eventObservable, {sender: 'sender', content: {body: 'body'}})
+        const [_, event$] = bind(observable, {sender: 'sender', content: {body: 'body'}})
         event$.subscribe((it) => {
-            console.log('react', it)
             setEvent(it)
         })
     }, [])
-    // const event = useEvent()
 
     return (
         <div>
             <div>{event?.sender}</div>
             <div>{event?.content.body}</div>
+            <div>{event?.children?.map(it => <Event observable={it}/>)}</div>
         </div>
     )
 }
@@ -45,7 +43,7 @@ function RoomList() {
         <div>
             <div>{Object.values(rooms).map(r => <button key={r.id}>{r?.name}</button>)}</div>
             <div>
-                {room?.events?.map(it => <Event eventObservable={it}/>)}
+                {room?.events?.map(it => <Event observable={it}/>)}
             </div>
         </div>
     )

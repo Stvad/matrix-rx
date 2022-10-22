@@ -1,4 +1,4 @@
-import {catchError, expand, map, Observable, of, scan, tap} from 'rxjs'
+import {catchError, expand, map, mergeScan, Observable, of, scan, tap} from 'rxjs'
 import {ApiClient, PREFIX_REST} from './api/ApiClient'
 import {ajax} from 'rxjs/internal/ajax/ajax'
 import {
@@ -166,12 +166,18 @@ function emitEvents(events: MatrixEvent[]) {
     // getEventsWithRelationships(events)
 }
 
+function isThreadChildOf(threaded: MatrixEvent, root: MatrixEvent) {
+    return threaded.content['m.relates_to']?.rel_type === 'm.thread' &&
+        threaded.content['m.relates_to']?.event_id === root.event_id
+}
+
 export class Matrix {
     constructor(
         private credentials: any,
         private serverUrl: string = `https://matrix-client.matrix.org`) {
     }
 
+    // todo probably by default get very generic info about rooms - ne messages
     sync(roomId?: string): Observable<SyncResponse> {
         const callSync = (syncToken?: string): Observable<SyncResponse> => {
             const filter = syncToken ? getIncrementalFilter(roomId) : getInitialFilter(roomId)
@@ -207,9 +213,7 @@ export class Matrix {
             map(it => {
                 if (!it?.events) return it
 
-                // const eventObservables = it.events.map(it => this.event(it.event_id))
                 const eventObservables = getRootEvents(it.events).map(it => this.event(it.event_id))
-                // it?.events.
                 if (it?.events) emitEvents(it.events)
 
                 return {
@@ -218,7 +222,6 @@ export class Matrix {
                 }
             }),
             scan((acc, curr = {events: []}) => {
-                console.log({acc, curr})
                 return {
                     ...acc,
                     ...curr,
@@ -235,14 +238,11 @@ export class Matrix {
 
     roomList(): Observable<Room[]> {
         return this.sync().pipe(
-            tap(console.log),
             map(it => it.rooms?.join ?? {}),
             map(extractCoreRoomsInfo),
             scan((acc, curr) => {
                 return {...acc, ...curr}
             }),
-
-            tap(console.log),
 
             catchError(error => {
                 console.log('error: ', error)
@@ -253,9 +253,7 @@ export class Matrix {
 
     event(eventId: string): Observable<MatrixEvent> {
         const mergeEditEvent = (event: MatrixEvent, edit: MatrixEvent) => {
-            if (event.type !== 'm.room.message') {
-                return event
-            }
+            if (event.type !== 'm.room.message' && edit.content['m.relates_to']?.rel_type !== 'm.replace') return event
 
             return {
                 ...event,
@@ -267,14 +265,53 @@ export class Matrix {
             }
         }
 
+        const mergeThreadEvent = (root: MatrixEvent, threaded: MatrixEvent) => {
+            if (!isThreadChildOf(threaded, root)) return root
+            console.log({root, threaded})
+            // console.log('threaded')
+
+            // todo timeout very bad
+            // solution for timeouts is probs for the event observable be "rememberLast" by default
+            // though if nobody is subscribed it will still not help.
+            // I almost want to supply a default value to the observable, which should be possible
+            // bind does this.
+
+            // need to re-emit the event bc now it'd be processed
+            // need to prevent infinite loop tho
+            // if there is already observer in children - don't emit
+
+            // wonder if the check above already prevents it tho - nope
+            // console.log('observed', root?.observedChildren)
+            // if(root.observedChildren?.has(threaded.event_id)) return root
+
+            setTimeout(() => bus.trigger({
+                ...threaded,
+                processedAsChild: true,
+            }), 100)
+
+            return {
+                ...root,
+                children: [...(root.children ?? []), this.event(threaded.event_id)],
+                // observedChildrenIds: new Set([...(root.observedChildren ?? []), threaded.event_id]),
+                threadRoot: true,
+            }
+        }
+
         return bus.query(
             it => it.event_id === eventId ||
-                it.content['m.relates_to']?.event_id === eventId)
-            .pipe(
-                scan((acc, curr) => {
-                    return mergeEditEvent(acc, curr)
-                }),
-            )
+                (it.content['m.relates_to']?.event_id === eventId && !it.processedAsChild),
+        ).pipe(
+            tap(it => console.log(it.event_id === eventId ? 'match on id': 'match on rel')),
+            scan((acc, curr) => {
+                if (acc.event_id === curr.event_id) {
+                    // todo why?
+                    console.log('getting duplicate events 🤔')
+                    return acc
+                }
+                const edited = mergeEditEvent(acc, curr)
+                return mergeThreadEvent(edited, curr)
+            })
+        )
     }
 }
 

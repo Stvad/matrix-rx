@@ -200,6 +200,13 @@ export class Matrix {
         return callSync().pipe(expand(r => callSync(r.next_batch)))
     }
 
+    observableFromEvent(event: MatrixEvent) {
+        return {
+            id: event.event_id,
+            observable: this.event(event.event_id),
+        }
+    }
+
     room(roomId: string): Observable<Room> {
         /*
         * consume update events that pertain to the already existing events (have relationships)
@@ -213,7 +220,7 @@ export class Matrix {
             map(it => {
                 if (!it?.events) return it
 
-                const eventObservables = getRootEvents(it.events).map(it => this.event(it.event_id))
+                const eventObservables = getRootEvents(it.events).map(this.observableFromEvent.bind(this))
                 if (it?.events) emitEvents(it.events)
 
                 return {
@@ -280,10 +287,6 @@ export class Matrix {
             // need to prevent infinite loop tho
             // if there is already observer in children - don't emit
 
-            // wonder if the check above already prevents it tho - nope
-            // console.log('observed', root?.observedChildren)
-            // if(root.observedChildren?.has(threaded.event_id)) return root
-
             setTimeout(() => bus.trigger({
                 ...threaded,
                 processedAsChild: true,
@@ -291,8 +294,7 @@ export class Matrix {
 
             return {
                 ...root,
-                children: [...(root.children ?? []), this.event(threaded.event_id)],
-                // observedChildrenIds: new Set([...(root.observedChildren ?? []), threaded.event_id]),
+                children: [...(root.children ?? []), this.observableFromEvent(threaded)],
                 threadRoot: true,
             }
         }
@@ -301,7 +303,7 @@ export class Matrix {
             it => it.event_id === eventId ||
                 (it.content['m.relates_to']?.event_id === eventId && !it.processedAsChild),
         ).pipe(
-            tap(it => console.log(it.event_id === eventId ? 'match on id': 'match on rel')),
+            tap(it => console.log(it.event_id === eventId ? 'match on id' : 'match on rel')),
             scan((acc, curr) => {
                 if (acc.event_id === curr.event_id) {
                     // todo why?
@@ -310,7 +312,7 @@ export class Matrix {
                 }
                 const edited = mergeEditEvent(acc, curr)
                 return mergeThreadEvent(edited, curr)
-            })
+            }),
         )
     }
 }

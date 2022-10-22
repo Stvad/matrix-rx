@@ -5,7 +5,7 @@ import {bind, Subscribe} from '@react-rxjs/core'
 
 const client = await createClient()
 const [useRooms, rooms$] = bind(client.roomList())
-const [useRoom, room$] = bind(client.room('!AtyuVyqNFWfJMwlbwR:matrix.org'))
+// const [useRoom, room$] = bind(client.room('!AtyuVyqNFWfJMwlbwR:matrix.org'))
 
 function App() {
     return (
@@ -21,29 +21,54 @@ function Event({observable}) {
     const [event, setEvent] = useState(null)
     useEffect(() => {
         const [_, event$] = bind(observable, {sender: 'sender', content: {body: 'body'}})
-        event$.subscribe((it) => {
+        const sub = event$.subscribe((it) => {
             setEvent(it)
         })
+        return () => sub.unsubscribe()
     }, [])
 
     return (
         <div>
-            <div>{event?.sender}</div>
-            <div>{event?.content.body}</div>
-            <div>{event?.children?.map(it => <Event observable={it}/>)}</div>
+            <div className="messageBody">
+                <div className="messageSender">{event?.sender}</div>
+                :
+                <div className="messageContent">{event?.content.body}</div>
+            </div>
+            <div className={'messageChildren'}>
+                {event?.children?.map(it => <Event key={it.id} observable={it.observable}/>)}
+            </div>
         </div>
     )
 }
 
 function RoomList() {
     const rooms = useRooms()
-    const room = useRoom()
+    const [room, setRoom] = useState(null)
+    const [roomId, setRoomId] = useState('!AtyuVyqNFWfJMwlbwR:matrix.org')
+
+    useEffect(() => {
+        const [_, room$] = bind(client.room(roomId))
+        const sub = room$.subscribe((it) => {
+            setRoom(it)
+        })
+        // todo unsubscribe
+        return () => sub.unsubscribe()
+    }, [roomId])
 
     return (
         <div>
-            <div>{Object.values(rooms).map(r => <button key={r.id}>{r?.name}</button>)}</div>
             <div>
-                {room?.events?.map(it => <Event observable={it}/>)}
+                {Object.values(rooms).map(r =>
+                    <button
+                        key={r.id}
+                        onClick={() => setRoomId(r.id)}
+                    >
+                        {r?.name}
+                    </button>,
+                )}
+            </div>
+            <div>
+                {room?.events?.map(it => <Event key={it.id} observable={it.observable}/>)}
             </div>
         </div>
     )

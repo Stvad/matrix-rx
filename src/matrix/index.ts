@@ -15,6 +15,7 @@ import {
 import {Omnibus} from 'omnibus-rxjs'
 
 const bus = new Omnibus<MatrixEvent>()
+
 // bus.listen(()=> true, console.log)
 
 interface Room {
@@ -151,6 +152,20 @@ function extractCoreRoomsInfo(rooms: { [id: string]: RoomData }) {
     return Object.fromEntries(Object.keys(rooms).map(it => [it, extractRoomInfo(it)]))
 }
 
+const hasRelationships = (event: MatrixEvent) => event.content['m.relates_to']
+
+const getEventsWithRelationships = (events: MatrixEvent[]) => events.filter(hasRelationships)
+const getRootEvents = (events: MatrixEvent[]) => events.filter(it => !hasRelationships(it))
+
+function emitEvents(events: MatrixEvent[]) {
+    // todo timeot thing is very bad
+    setTimeout(() => events?.forEach(it => bus.trigger(it)), 2000)
+
+    // setTimeout(() => getRootEvents(events).forEach(it => bus.trigger(it)), 100)
+    // setTimeout(() => getEventsWithRelationships(events).forEach(it => bus.trigger(it)), 100)
+    // getEventsWithRelationships(events)
+}
+
 export class Matrix {
     constructor(
         private credentials: any,
@@ -190,10 +205,13 @@ export class Matrix {
             map(extractCoreRoomsInfo),
             map(it => it[roomId]),
             map(it => {
-                if (!it?.events) return  it
+                if (!it?.events) return it
 
-                const eventObservables = it.events.map(it => this.event(it.event_id))
-                setTimeout(() => it?.events.forEach(it => bus.trigger(it)), 2000)
+                // const eventObservables = it.events.map(it => this.event(it.event_id))
+                const eventObservables = getRootEvents(it.events).map(it => this.event(it.event_id))
+                // it?.events.
+                if (it?.events) emitEvents(it.events)
+
                 return {
                     ...it,
                     events: eventObservables,
@@ -249,12 +267,13 @@ export class Matrix {
             }
         }
 
-        return bus.query(it => it.event_id === eventId)
+        return bus.query(
+            it => it.event_id === eventId ||
+                it.content['m.relates_to']?.event_id === eventId)
             .pipe(
-                // tap((it)=>console.log('event', it)),
                 scan((acc, curr) => {
-                        return mergeEditEvent(acc, curr)
-                    }),
+                    return mergeEditEvent(acc, curr)
+                }),
             )
     }
 }

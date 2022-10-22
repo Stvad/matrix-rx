@@ -45,9 +45,7 @@ function RoomList() {
         <div>
             <div>{Object.values(rooms).map(r => <button key={r.id}>{r?.name}</button>)}</div>
             <div>
-                {/*{room?.events?.map(it => <div>{it?.content?.body}</div>)}*/}
                 {room?.events?.map(it => <Event eventObservable={it}/>)}
-
             </div>
         </div>
     )

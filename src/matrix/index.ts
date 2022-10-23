@@ -169,10 +169,6 @@ function emitEvents(events: MatrixEvent[]) {
 
     events?.forEach(it => bus.trigger(it))
     // setTimeout(() => events?.forEach(it => bus.trigger(it)), 0)
-
-    // setTimeout(() => getRootEvents(events).forEach(it => bus.trigger(it)), 100)
-    // setTimeout(() => getEventsWithRelationships(events).forEach(it => bus.trigger(it)), 100)
-    // getEventsWithRelationships(events)
 }
 
 function isThreadChildOf(threaded: MatrixEvent, root: MatrixEvent) {
@@ -181,6 +177,11 @@ function isThreadChildOf(threaded: MatrixEvent, root: MatrixEvent) {
 }
 
 export class Matrix {
+    /**
+     * kind of unhappy with having to have this, is there a bette way?
+     */
+    private observableRegistry = new Map<string, Observable<MatrixEvent>>()
+
     constructor(
         private credentials: any,
         private serverUrl: string = `https://matrix-client.matrix.org`) {
@@ -225,7 +226,13 @@ export class Matrix {
             map(it => {
                 if (!it?.events) return it
 
-                const eventObservables = getRootEvents(it.events).map(this.observableFromEvent.bind(this))
+                const rootEventsObservables = getRootEvents(it.events).map(this.observableFromEvent.bind(this))
+                this.addToRegistry(rootEventsObservables)
+
+                const eventsWithRelationshipsObservable =
+                    getEventsWithRelationships(it.events).map(this.observableFromEvent.bind(this))
+                this.addToRegistry(eventsWithRelationshipsObservable)
+
                 if (it?.events) emitEvents(it.events)
 
                 /**
@@ -238,13 +245,16 @@ export class Matrix {
                  * - for server supported relations - it seems that the server will include some relations inthe root event
                  *   - not clear if it's part of the spec/will there be all events/etc
                  *   - also probably prevents from supporting custom relations?
+                 *   - see https://spec.matrix.org/v1.3/client-server-api/#aggregations
+                 *     - it seems for threads it'd include just the latest event, which is not very useful
+                 *     - for reactions it'd include all reactions, which can be used to assemble the event faster
                  * other option is to re-emit events that were not consumed by anyone, but that probably would go bad places
                  *
                  */
 
                 return {
                     ...it,
-                    events: eventObservables,
+                    events: rootEventsObservables,
                 }
             }),
             scan((acc, curr = {events: []}) => {
@@ -260,6 +270,10 @@ export class Matrix {
                 return of(error)
             }),
         )
+    }
+
+    private addToRegistry(eventObservables: { observable: Observable<MatrixEvent>; id: string }[]) {
+        eventObservables.forEach(it => this.observableRegistry.set(it.id, it.observable))
     }
 
     roomList(): Observable<Room[]> {
@@ -296,7 +310,11 @@ export class Matrix {
 
             return {
                 ...root,
-                children: [...(root.children ?? []), this.observableFromEvent(threaded)],
+                // children: [...(root.children ?? []), this.observableFromEvent(threaded)],
+                children: [
+                    ...(root.children ?? []),
+                    {id: threaded.event_id, observable: this.observableRegistry.get(threaded.event_id)},
+                ],
                 threadRoot: true,
             }
         }

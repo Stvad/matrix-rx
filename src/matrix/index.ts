@@ -1,4 +1,4 @@
-import {catchError, expand, map, mergeScan, Observable, of, scan, tap} from 'rxjs'
+import {BehaviorSubject, catchError, expand, map, mergeScan, multicast, Observable, of, scan, tap} from 'rxjs'
 import {ApiClient, PREFIX_REST} from './api/ApiClient'
 import {ajax} from 'rxjs/internal/ajax/ajax'
 import {
@@ -13,6 +13,7 @@ import {
 } from './types/Api'
 
 import {Omnibus} from 'omnibus-rxjs'
+import {bind} from '@react-rxjs/core'
 
 const bus = new Omnibus<MatrixEvent>()
 
@@ -159,7 +160,15 @@ const getRootEvents = (events: MatrixEvent[]) => events.filter(it => !hasRelatio
 
 function emitEvents(events: MatrixEvent[]) {
     // todo timeot thing is very bad
-    setTimeout(() => events?.forEach(it => bus.trigger(it)), 2000)
+    // solution for timeouts is probs for the event observable be "rememberLast" by default
+    // though if nobody is subscribed it will still not help.
+    // I almost want to supply a default value to the observable, which should be possible
+    // bind does this.
+    // but that's not sufficient for relations - if I emit relations and nobody is subscribed - they just fall through
+    // less observable and more queue?
+
+    events?.forEach(it => bus.trigger(it))
+    // setTimeout(() => events?.forEach(it => bus.trigger(it)), 0)
 
     // setTimeout(() => getRootEvents(events).forEach(it => bus.trigger(it)), 100)
     // setTimeout(() => getEventsWithRelationships(events).forEach(it => bus.trigger(it)), 100)
@@ -203,15 +212,11 @@ export class Matrix {
     observableFromEvent(event: MatrixEvent) {
         return {
             id: event.event_id,
-            observable: this.event(event.event_id),
+            observable: this.event(event.event_id, event),
         }
     }
 
     room(roomId: string): Observable<Room> {
-        /*
-        * consume update events that pertain to the already existing events (have relationships)
-        *
-        * */
         return this.sync(roomId).pipe(
             tap(console.log),
             map(it => it.rooms?.join ?? {}),
@@ -222,6 +227,20 @@ export class Matrix {
 
                 const eventObservables = getRootEvents(it.events).map(this.observableFromEvent.bind(this))
                 if (it?.events) emitEvents(it.events)
+
+                /**
+                 * right now second+ order relations are dropped
+                 * (e.g. edit a message in a thread)
+                 * bc. there is no listener for it either on top or "relates to" level
+                 *
+                 * should I create those observables for all events, and then retrieve them by id when needed?
+                 * - this is probably ok, maybe avoiding some obviously "leaf" events
+                 * - for server supported relations - it seems that the server will include some relations inthe root event
+                 *   - not clear if it's part of the spec/will there be all events/etc
+                 *   - also probably prevents from supporting custom relations?
+                 * other option is to re-emit events that were not consumed by anyone, but that probably would go bad places
+                 *
+                 */
 
                 return {
                     ...it,
@@ -258,7 +277,7 @@ export class Matrix {
         )
     }
 
-    event(eventId: string): Observable<MatrixEvent> {
+    event(eventId: string, init: MatrixEvent): Observable<MatrixEvent> {
         const mergeEditEvent = (event: MatrixEvent, edit: MatrixEvent) => {
             if (event.type !== 'm.room.message' && edit.content['m.relates_to']?.rel_type !== 'm.replace') return event
 
@@ -274,23 +293,6 @@ export class Matrix {
 
         const mergeThreadEvent = (root: MatrixEvent, threaded: MatrixEvent) => {
             if (!isThreadChildOf(threaded, root)) return root
-            console.log({root, threaded})
-            // console.log('threaded')
-
-            // todo timeout very bad
-            // solution for timeouts is probs for the event observable be "rememberLast" by default
-            // though if nobody is subscribed it will still not help.
-            // I almost want to supply a default value to the observable, which should be possible
-            // bind does this.
-
-            // need to re-emit the event bc now it'd be processed
-            // need to prevent infinite loop tho
-            // if there is already observer in children - don't emit
-
-            setTimeout(() => bus.trigger({
-                ...threaded,
-                processedAsChild: true,
-            }), 100)
 
             return {
                 ...root,
@@ -299,10 +301,12 @@ export class Matrix {
             }
         }
 
-        return bus.query(
-            it => it.event_id === eventId ||
-                (it.content['m.relates_to']?.event_id === eventId && !it.processedAsChild),
-        ).pipe(
+        const eventOfInterest = (it: MatrixEvent) => {
+            const unprocessedRelationship = it.content['m.relates_to']?.event_id === eventId && !it.processedAsChild
+            return it.event_id === eventId || unprocessedRelationship
+        }
+
+        const rawEvent$ = bus.query(eventOfInterest).pipe(
             tap(it => console.log(it.event_id === eventId ? 'match on id' : 'match on rel')),
             scan((acc, curr) => {
                 if (acc.event_id === curr.event_id) {
@@ -314,6 +318,19 @@ export class Matrix {
                 return mergeThreadEvent(edited, curr)
             }),
         )
+
+        /**
+         * todo
+         * because we are creating a subscription here - the observable will stay "hot"
+         * till we unsubscribe from
+         * so likely here  I have a resource leak
+         *
+         * potential interesting avenue - use `takeWhile` or `takeUntil` to unsubscribe
+         * relying on the status of the room observable
+         */
+        const subject = new BehaviorSubject(init)
+        rawEvent$.subscribe(subject)
+        return subject
     }
 }
 

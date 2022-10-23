@@ -2,6 +2,7 @@ import {useEffect, useState} from 'react'
 import './App.css'
 import {createClient} from './matrix'
 import {bind, Subscribe} from '@react-rxjs/core'
+import {useObservableValue} from './core/observable'
 
 const client = await createClient()
 const [useRooms, rooms$] = bind(client.roomList())
@@ -18,14 +19,7 @@ function App() {
 }
 
 function Event({observable}) {
-    const [event, setEvent] = useState(null)
-    useEffect(() => {
-        const [_, event$] = bind(observable, {sender: 'sender', content: {body: 'body'}})
-        const sub = event$.subscribe((it) => {
-            setEvent(it)
-        })
-        return () => sub.unsubscribe()
-    }, [])
+    const event = useObservableValue(observable)
 
     return (
         <div>

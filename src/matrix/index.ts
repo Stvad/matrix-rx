@@ -1,4 +1,4 @@
-import {BehaviorSubject, catchError, expand, map, merge, mergeMap, Observable, of, scan, tap} from 'rxjs'
+import {BehaviorSubject, catchError, expand, map, merge, mergeMap, Observable, of, scan, shareReplay, tap} from 'rxjs'
 import {ApiClient, PREFIX_REST} from './api/ApiClient'
 import {ajax} from 'rxjs/internal/ajax/ajax'
 import {
@@ -77,6 +77,25 @@ interface ObservedEvent {
     timestamp: number,
     type: MessageEventType,
     observable: Observable<MatrixEvent>,
+}
+
+const toBehaviorSubject = <T>(observable: Observable<T>, initialValue: T) => {
+    /**
+     * todo unsubscribe/release resources procedure
+     * because we are creating a subscription here - the observable will stay "hot"
+     * till we unsubscribe from
+     * so likely here  I have a resource leak
+     *
+     * potential interesting avenue - use `takeWhile` or `takeUntil` to unsubscribe
+     * relying on the status of the room observable
+     *
+     * tho also good to think about messages that haven't been viewed for a while 🤔
+     *
+     */
+
+    const subject = new BehaviorSubject(initialValue)
+    observable.subscribe(subject)
+    return subject
 }
 
 export class Matrix {
@@ -210,6 +229,7 @@ export class Matrix {
                     messages: events.filter(it => it.type === 'm.room.message'),
                 }
             }),
+            shareReplay(1),
 
             catchError(error => {
                 console.log('error: ', error)
@@ -229,6 +249,7 @@ export class Matrix {
             scan((acc, curr) => {
                 return {...acc, ...curr}
             }),
+            shareReplay(1),
 
             catchError(error => {
                 console.log('error: ', error)
@@ -285,21 +306,8 @@ export class Matrix {
             }),
         )
 
-        /**
-         * todo
-         * because we are creating a subscription here - the observable will stay "hot"
-         * till we unsubscribe from
-         * so likely here  I have a resource leak
-         *
-         * potential interesting avenue - use `takeWhile` or `takeUntil` to unsubscribe
-         * relying on the status of the room observable
-         *
-         * tho also good to think about messages that haven't been viewed for a while 🤔
-         *
-         */
-        const subject = new BehaviorSubject(init)
-        rawEvent$.subscribe(subject)
-        return subject
+
+        return toBehaviorSubject(rawEvent$, init)
     }
 }
 

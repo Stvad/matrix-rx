@@ -1,22 +1,20 @@
 import {useEffect, useState} from 'react'
 import './App.css'
 import {createClient} from './matrix'
-import {bind, Subscribe} from '@react-rxjs/core'
 import {useObservableValue} from './core/observable'
+import {Subscription} from 'rxjs'
 
 const client = await createClient({
     userId: import.meta.env.VITE_TEST_USER,
     password: import.meta.env.VITE_TEST_PASS,
     server: 'matrix.org',
 })
-const [useRooms, rooms$] = bind(client.roomList())
+const rooms$ = client.roomList()
 
 function App() {
     return (
         <div className="App">
-            <Subscribe>
-                <RoomList/>
-            </Subscribe>
+            <RoomList/>
         </div>
     )
 }
@@ -42,7 +40,7 @@ function Room({roomId}) {
     const [room, setRoom] = useState(null)
 
     useEffect(() => {
-        const [_, room$] = bind(client.room(roomId))
+        const room$ = client.room(roomId)
         const sub = room$.subscribe((it) => {
             setRoom(it)
         })
@@ -54,15 +52,25 @@ function Room({roomId}) {
         <div className="roomName">{room?.name}</div>
         <button onClick={() => {
             client.triggerScroll(roomId, room?.backPaginationToken)
-        }}>^</button>
+        }}>^
+        </button>
         <div>
             {room?.messages?.map(it => <Event key={it.id} observable={it.observable}/>)}
         </div>
     </div>
 }
 
+function useWhileMounted(subsFactory: () => Subscription) {
+    useEffect(() => {
+        const sub = subsFactory()
+        return () => sub?.unsubscribe()
+    }, [])
+}
+
 function RoomList() {
-    const rooms = useRooms()
+    const [rooms, setRooms] = useState([])
+    useWhileMounted(() => rooms$.subscribe(it => setRooms(it)))
+
     const [roomId, setRoomId] = useState('!AtyuVyqNFWfJMwlbwR:matrix.org')
 
     return (

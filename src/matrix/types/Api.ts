@@ -82,9 +82,24 @@ export interface MatrixEvent {
 	_redacted?: boolean;
 }
 
-export interface RoomNameEvent extends MatrixEvent{
+export interface RoomNameEvent extends MatrixEvent {
 	type: 'm.room.name'
 	content: { name: string }
+}
+
+
+export interface ReplaceEvent extends MatrixEvent {
+	type: 'm.room.message';
+	content: {
+		body: string;
+		'm.new_content': {
+			body: string;
+		}
+		'm.relates_to': {
+			event_id: string;
+			rel_type: 'm.replace';
+		}
+	}
 }
 
 export interface ThumbnailInfo_ {
@@ -265,6 +280,12 @@ export interface PublicRoom_ {
 
 export interface GetPublicRoomsResponse_ {
 	chunk: PublicRoom_[];
+}
+
+export interface RoomMessagesResponse {
+	start: string
+	end: string
+	chunk: MatrixEvent[]
 }
 
 export interface StateEventContent_ {

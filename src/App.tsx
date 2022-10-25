@@ -4,7 +4,11 @@ import {createClient} from './matrix'
 import {bind, Subscribe} from '@react-rxjs/core'
 import {useObservableValue} from './core/observable'
 
-const client = await createClient()
+const client = await createClient({
+    userId: import.meta.env.VITE_TEST_USER,
+    password: import.meta.env.VITE_TEST_PASS,
+    server: 'matrix.org',
+})
 const [useRooms, rooms$] = bind(client.roomList())
 
 function App() {
@@ -48,11 +52,11 @@ function Room({roomId}) {
     console.log({room})
     return <div>
         <div className="roomName">{room?.name}</div>
-        <button onClick={()=>{
-            client.triggerScroll(roomId, room?.timeline?.prev_batch)
+        <button onClick={() => {
+            client.triggerScroll(roomId, room?.backPaginationToken)
         }}>^</button>
         <div>
-            {room?.events?.map(it => <Event key={it.id} observable={it.observable}/>)}
+            {room?.messages?.map(it => <Event key={it.id} observable={it.observable}/>)}
         </div>
     </div>
 }

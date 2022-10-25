@@ -1,7 +1,15 @@
 import {BehaviorSubject, catchError, expand, map, merge, mergeMap, Observable, of, scan, tap} from 'rxjs'
 import {ApiClient, PREFIX_REST} from './api/ApiClient'
 import {ajax} from 'rxjs/internal/ajax/ajax'
-import {MatrixEvent, RoomData, RoomNameEvent, SyncResponse} from './types/Api'
+import {
+    MatrixEvent,
+    MessageEventType,
+    ReplaceEvent,
+    RoomData,
+    RoomMessagesResponse,
+    RoomNameEvent,
+    SyncResponse,
+} from './types/Api'
 
 import {Omnibus} from 'omnibus-rxjs'
 import {getIncrementalFilter, getInitialFilter} from './sync-filter'
@@ -16,6 +24,7 @@ const syncTimeout = 10000
 
 function extractCoreRoomsInfo(rooms: { [id: string]: RoomData }) {
     function getRoomName(events: MatrixEvent[]) {
+        // @ts-ignore https://github.com/microsoft/TypeScript/issues/48829
         const nameEvent = events.findLast(e => e.type === 'm.room.name') as RoomNameEvent | undefined
         return nameEvent?.content.name ?? ''
     }
@@ -28,6 +37,10 @@ function extractCoreRoomsInfo(rooms: { [id: string]: RoomData }) {
             id,
             events: loadedRoomEvents,
             name: getRoomName(loadedRoomEvents),
+            /** todo
+             * the story is more complicated, can have windows of unloaded messages, etc
+             */
+            backPaginationToken: room.timeline.prev_batch,
             ...room,
         }
     }
@@ -41,7 +54,7 @@ const getEventsWithRelationships = (events: MatrixEvent[]) => events.filter(hasR
 const getRootEvents = (events: MatrixEvent[]) => events.filter(it => !hasRelationships(it))
 
 function emitEvents(events: MatrixEvent[]) {
-    // todo timeot thing is very bad
+    // todo
     // solution for timeouts is probs for the event observable be "rememberLast" by default
     // though if nobody is subscribed it will still not help.
     // I almost want to supply a default value to the observable, which should be possible
@@ -50,19 +63,19 @@ function emitEvents(events: MatrixEvent[]) {
     // less observable and more queue?
 
     events?.forEach(it => matrixEventBus.trigger(it))
-    // setTimeout(() => events?.forEach(it => matrixEventBus.trigger(it)), 0)
 }
 
 function isThreadChildOf(threaded: MatrixEvent, root: MatrixEvent) {
     const threadTypes = ['m.thread', 'm.glue-thread']
 
-    return threadTypes.includes(threaded.content['m.relates_to']?.rel_type) &&
+    return threadTypes.includes(threaded.content['m.relates_to']?.rel_type!) &&
         threaded.content['m.relates_to']?.event_id === root.event_id
 }
 
 interface ObservedEvent {
     id: string,
     timestamp: number,
+    type: MessageEventType,
     observable: Observable<MatrixEvent>,
 }
 
@@ -106,6 +119,7 @@ export class Matrix {
         return {
             id: event.event_id,
             timestamp: event.origin_server_ts,
+            type: event.type,
             observable: observable || this.event(event.event_id, event),
         }
     }
@@ -114,15 +128,20 @@ export class Matrix {
         const params = new URLSearchParams({
             from: from,
             dir: 'b',
-            limit: '200', // todo make this configurable
+            limit: '100', // todo make this configurable
             access_token: this.credentials.accessToken,
         })
         if (to) {
             params.set('to', to)
         }
 
-        return ajax.getJSON(`${this.serverUrl}${PREFIX_REST}rooms/${roomId}/messages?` + params.toString())
-            .pipe(map(it => ({events: it.chunk})))
+        // todo handle `from` being empty
+
+        return ajax.getJSON<RoomMessagesResponse>(`${this.serverUrl}${PREFIX_REST}rooms/${roomId}/messages?` + params.toString())
+            .pipe(
+                tap(it => console.log('scroll-response', it)),
+                map(it => ({events: it.chunk, backPaginationToken: it.end})),
+            )
     }
 
     scrollOnTrigger(roomId: string) {
@@ -130,7 +149,6 @@ export class Matrix {
             .pipe(
                 tap(it => console.log('scrolling', it)),
                 mergeMap((it) => this.scroll(roomId, it.from, it.to)),
-                tap((it) => console.log('fromscroll', it)),
             )
     }
 
@@ -182,12 +200,14 @@ export class Matrix {
                 }
             }),
             scan((acc, curr = {events: []}) => {
+                const events = [...acc.events, ...curr.events].sort((a, b) => a.timestamp - b.timestamp)
                 return {
                     ...acc,
                     ...curr,
                     // todo performance wise - should be able to just do merge part of merge sort instead of full sort
                     // todo dedup, though maybe even at an earlier stage (observalbe creation)
-                    events: [...acc.events, ...curr.events].sort((a, b) => a.timestamp - b.timestamp),
+                    events,
+                    messages: events.filter(it => it.type === 'm.room.message'),
                 }
             }),
 
@@ -218,8 +238,11 @@ export class Matrix {
     }
 
     event(eventId: string, init: MatrixEvent): Observable<MatrixEvent> {
-        const mergeEditEvent = (event: MatrixEvent, edit: MatrixEvent) => {
-            if (event.type !== 'm.room.message' && edit.content['m.relates_to']?.rel_type !== 'm.replace') return event
+        const mergeReplaceEvent = (event: MatrixEvent, edit: MatrixEvent) => {
+            const isReplaceEvent = (ev: MatrixEvent): ev is ReplaceEvent =>
+                ev.content['m.relates_to']?.rel_type === 'm.replace'
+
+            if (!isReplaceEvent(edit)) return event
 
             return {
                 ...event,
@@ -257,7 +280,7 @@ export class Matrix {
                     console.log('getting duplicate events 🤔')
                     return acc
                 }
-                const edited = mergeEditEvent(acc, curr)
+                const edited = mergeReplaceEvent(acc, curr)
                 return mergeThreadEvent(edited, curr)
             }),
         )
@@ -280,8 +303,8 @@ export class Matrix {
     }
 }
 
-export const createClient = async () => {
+export const createClient = async (params) => {
     const apiClient = new ApiClient()
-    const creds = await apiClient.login(import.meta.env.VITE_TEST_USER, import.meta.env.VITE_TEST_PASS, 'matrix.org')
+    const creds = await apiClient.login(params.userId, params.password, params.server)
     return new Matrix(creds)
 }

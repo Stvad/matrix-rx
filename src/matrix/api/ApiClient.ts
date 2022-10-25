@@ -34,8 +34,6 @@ import AsyncStorage from '../../core/AsyncStorage'
 export class ApiClient {
 	public credentials!: Credentials;
 
-	// login + credentials
-
 	public async login(userId: string, password: string, server: string) {
 		const restClient = new RestClient('', server, PREFIX_REST);
 

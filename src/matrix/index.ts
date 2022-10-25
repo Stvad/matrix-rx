@@ -1,137 +1,18 @@
-import {BehaviorSubject, catchError, expand, map, mergeScan, multicast, Observable, of, scan, tap} from 'rxjs'
+import {BehaviorSubject, catchError, expand, map, merge, mergeMap, Observable, of, scan, tap} from 'rxjs'
 import {ApiClient, PREFIX_REST} from './api/ApiClient'
 import {ajax} from 'rxjs/internal/ajax/ajax'
-import {
-    EventsFilter_,
-    MatrixEvent,
-    MessageEventType,
-    RoomData,
-    RoomFilter,
-    RoomNameEvent,
-    SyncFilter,
-    SyncResponse,
-} from './types/Api'
+import {MatrixEvent, RoomData, RoomNameEvent, SyncResponse} from './types/Api'
 
 import {Omnibus} from 'omnibus-rxjs'
-import {bind} from '@react-rxjs/core'
+import {getIncrementalFilter, getInitialFilter} from './sync-filter'
 
-const bus = new Omnibus<MatrixEvent>()
-
-// bus.listen(()=> true, console.log)
+const matrixEventBus = new Omnibus<MatrixEvent>()
+const controlBus = new Omnibus()
 
 interface Room {
 }
 
-export const MESSAGE_COUNT_INC = 100
 const syncTimeout = 10000
-
-const roomEventTypesToLoad: MessageEventType[] = [
-    'm.room.third_party_invite',
-    'm.room.redaction',
-    'm.room.message',
-    'm.room.member',
-    'm.room.name',
-    'm.room.avatar',
-    'm.room.canonical_alias',
-    'm.room.join_rules',
-    'm.room.power_levels',
-    'm.room.topic',
-    'm.room.encrypted',
-    'm.room.create',
-]
-
-function getIncrementalFilter(roomId?: string) {
-
-    const accountFilterRoom: EventsFilter_ = {
-        limit: 0,
-        types: [],
-    }
-
-    const roomFilter: RoomFilter = {
-        rooms: roomId ? [roomId] : undefined,
-        timeline: {
-            limit: MESSAGE_COUNT_INC,
-            lazy_load_members: true,
-            types: roomEventTypesToLoad,
-        },
-        state: {
-            lazy_load_members: true,
-            types: [
-                'm.room.member',
-                'm.room.name',
-                'm.room.avatar',
-                'm.room.canonical_alias',
-                'm.room.join_rules',
-                'm.room.power_levels',
-                'm.room.topic',
-                'm.room.create',
-            ],
-        },
-        ephemeral: {
-            lazy_load_members: true,
-            types: ['m.receipt'],
-        },
-        include_leave: true,
-        account_data: accountFilterRoom,
-    }
-
-    const accountFilter: EventsFilter_ = {
-        types: ['m.direct'],
-    }
-
-    const filter: SyncFilter = {
-        room: roomFilter,
-        account_data: accountFilter,
-        presence: {types: ['m.presence']},
-    }
-    return filter
-}
-
-function getInitialFilter(roomId?: string) {
-    const accountFilterRoom_: EventsFilter_ = {
-        limit: 0,
-        types: [],
-    }
-
-    const roomFilter_: RoomFilter = {
-        rooms: roomId ? [roomId] : undefined,
-        timeline: {
-            limit: roomId ? 15 : 0,
-            types: roomId ? roomEventTypesToLoad : [],
-        },
-        state: {
-            lazy_load_members: true,
-            types: [
-                'm.room.third_party_invite',
-                'm.room.member',
-                'm.room.name',
-                'm.room.avatar',
-                'm.room.canonical_alias',
-                'm.room.join_rules',
-                'm.room.power_levels',
-                'm.room.topic',
-                'm.room.create',
-            ],
-        },
-        ephemeral: {
-            limit: 0,
-            types: [],
-        },
-        include_leave: false,
-        account_data: accountFilterRoom_,
-    }
-
-    const accountFilter_: EventsFilter_ = {
-        types: ['m.direct', 'm.push_rules'],
-    }
-
-    const filter_: SyncFilter = {
-        room: roomFilter_,
-        account_data: accountFilter_,
-        presence: {types: ['m.presence']},
-    }
-    return filter_
-}
 
 function extractCoreRoomsInfo(rooms: { [id: string]: RoomData }) {
     function getRoomName(events: MatrixEvent[]) {
@@ -147,6 +28,7 @@ function extractCoreRoomsInfo(rooms: { [id: string]: RoomData }) {
             id,
             events: loadedRoomEvents,
             name: getRoomName(loadedRoomEvents),
+            ...room,
         }
     }
 
@@ -167,13 +49,21 @@ function emitEvents(events: MatrixEvent[]) {
     // but that's not sufficient for relations - if I emit relations and nobody is subscribed - they just fall through
     // less observable and more queue?
 
-    events?.forEach(it => bus.trigger(it))
-    // setTimeout(() => events?.forEach(it => bus.trigger(it)), 0)
+    events?.forEach(it => matrixEventBus.trigger(it))
+    // setTimeout(() => events?.forEach(it => matrixEventBus.trigger(it)), 0)
 }
 
 function isThreadChildOf(threaded: MatrixEvent, root: MatrixEvent) {
-    return threaded.content['m.relates_to']?.rel_type === 'm.thread' &&
+    const threadTypes = ['m.thread', 'm.glue-thread']
+
+    return threadTypes.includes(threaded.content['m.relates_to']?.rel_type) &&
         threaded.content['m.relates_to']?.event_id === root.event_id
+}
+
+interface ObservedEvent {
+    id: string,
+    timestamp: number,
+    observable: Observable<MatrixEvent>,
 }
 
 export class Matrix {
@@ -187,7 +77,7 @@ export class Matrix {
         private serverUrl: string = `https://matrix-client.matrix.org`) {
     }
 
-    // todo probably by default get very generic info about rooms - ne messages
+    // todo probably by default get very generic info about rooms - no messages
     sync(roomId?: string): Observable<SyncResponse> {
         const callSync = (syncToken?: string): Observable<SyncResponse> => {
             const filter = syncToken ? getIncrementalFilter(roomId) : getInitialFilter(roomId)
@@ -195,13 +85,15 @@ export class Matrix {
             const params = new URLSearchParams({
                 timeout: syncTimeout.toString(),
                 filter: JSON.stringify(filter),
-                full_state: syncToken ? 'false' : 'true',
+                full_state: 'true',
                 set_presence: 'online',
                 access_token: this.credentials.accessToken,
+
+                ...(syncToken ? {
+                    since: syncToken,
+                    full_state: 'false',
+                } : {}),
             })
-            if (syncToken) {
-                params.set('since', encodeURI(syncToken))
-            }
 
             return ajax.getJSON(`${this.serverUrl}${PREFIX_REST}sync?` + params.toString())
         }
@@ -210,27 +102,59 @@ export class Matrix {
         return callSync().pipe(expand(r => callSync(r.next_batch)))
     }
 
-    observableFromEvent(event: MatrixEvent) {
+    observedEvent(event: MatrixEvent, observable?: Observable<MatrixEvent>): ObservedEvent {
         return {
             id: event.event_id,
-            observable: this.event(event.event_id, event),
+            timestamp: event.origin_server_ts,
+            observable: observable || this.event(event.event_id, event),
         }
     }
 
-    room(roomId: string): Observable<Room> {
-        return this.sync(roomId).pipe(
+    scroll(roomId: string, from: string, to?: string): Observable<{ events: MatrixEvent[] }> {
+        const params = new URLSearchParams({
+            from: from,
+            dir: 'b',
+            limit: '200', // todo make this configurable
+            access_token: this.credentials.accessToken,
+        })
+        if (to) {
+            params.set('to', to)
+        }
+
+        return ajax.getJSON(`${this.serverUrl}${PREFIX_REST}rooms/${roomId}/messages?` + params.toString())
+            .pipe(map(it => ({events: it.chunk})))
+    }
+
+    scrollOnTrigger(roomId: string) {
+        return controlBus.query((it => it.type === 'scroll' && it.roomId === roomId))
+            .pipe(
+                tap(it => console.log('scrolling', it)),
+                mergeMap((it) => this.scroll(roomId, it.from, it.to)),
+                tap((it) => console.log('fromscroll', it)),
+            )
+    }
+
+    triggerScroll(roomId: string, from: string, to?: string) {
+        controlBus.trigger({type: 'scroll', roomId, from, to})
+    }
+
+    room(roomId: string): Observable<RoomData> {
+        const roomFromSync = this.sync(roomId).pipe(
             tap(console.log),
             map(it => it.rooms?.join ?? {}),
             map(extractCoreRoomsInfo),
-            map(it => it[roomId]),
+            map(it => it[roomId]))
+
+
+        return merge(roomFromSync, this.scrollOnTrigger(roomId)).pipe(
             map(it => {
                 if (!it?.events) return it
 
-                const rootEventsObservables = getRootEvents(it.events).map(this.observableFromEvent.bind(this))
+                const rootEventsObservables = getRootEvents(it.events).map(it => this.observedEvent(it))
                 this.addToRegistry(rootEventsObservables)
 
                 const eventsWithRelationshipsObservable =
-                    getEventsWithRelationships(it.events).map(this.observableFromEvent.bind(this))
+                    getEventsWithRelationships(it.events).map(it => this.observedEvent(it))
                 this.addToRegistry(eventsWithRelationshipsObservable)
 
                 if (it?.events) emitEvents(it.events)
@@ -261,7 +185,9 @@ export class Matrix {
                 return {
                     ...acc,
                     ...curr,
-                    events: [...acc.events, ...curr.events],
+                    // todo performance wise - should be able to just do merge part of merge sort instead of full sort
+                    // todo dedup, though maybe even at an earlier stage (observalbe creation)
+                    events: [...acc.events, ...curr.events].sort((a, b) => a.timestamp - b.timestamp),
                 }
             }),
 
@@ -310,10 +236,9 @@ export class Matrix {
 
             return {
                 ...root,
-                // children: [...(root.children ?? []), this.observableFromEvent(threaded)],
                 children: [
                     ...(root.children ?? []),
-                    {id: threaded.event_id, observable: this.observableRegistry.get(threaded.event_id)},
+                    this.observedEvent(threaded, this.observableRegistry.get(threaded.event_id)),
                 ],
                 threadRoot: true,
             }
@@ -324,7 +249,7 @@ export class Matrix {
             return it.event_id === eventId || unprocessedRelationship
         }
 
-        const rawEvent$ = bus.query(eventOfInterest).pipe(
+        const rawEvent$ = matrixEventBus.query(eventOfInterest).pipe(
             tap(it => console.log(it.event_id === eventId ? 'match on id' : 'match on rel')),
             scan((acc, curr) => {
                 if (acc.event_id === curr.event_id) {
@@ -345,6 +270,9 @@ export class Matrix {
          *
          * potential interesting avenue - use `takeWhile` or `takeUntil` to unsubscribe
          * relying on the status of the room observable
+         *
+         * tho also good to think about messages that haven't been viewed for a while 🤔
+         *
          */
         const subject = new BehaviorSubject(init)
         rawEvent$.subscribe(subject)

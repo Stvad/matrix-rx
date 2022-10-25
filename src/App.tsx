@@ -6,7 +6,6 @@ import {useObservableValue} from './core/observable'
 
 const client = await createClient()
 const [useRooms, rooms$] = bind(client.roomList())
-// const [useRoom, room$] = bind(client.room('!AtyuVyqNFWfJMwlbwR:matrix.org'))
 
 function App() {
     return (
@@ -35,19 +34,32 @@ function Event({observable}) {
     )
 }
 
-function RoomList() {
-    const rooms = useRooms()
+function Room({roomId}) {
     const [room, setRoom] = useState(null)
-    const [roomId, setRoomId] = useState('!AtyuVyqNFWfJMwlbwR:matrix.org')
 
     useEffect(() => {
         const [_, room$] = bind(client.room(roomId))
         const sub = room$.subscribe((it) => {
             setRoom(it)
         })
-        // todo unsubscribe
         return () => sub.unsubscribe()
     }, [roomId])
+
+    console.log({room})
+    return <div>
+        <div className="roomName">{room?.name}</div>
+        <button onClick={()=>{
+            client.triggerScroll(roomId, room?.timeline?.prev_batch)
+        }}>^</button>
+        <div>
+            {room?.events?.map(it => <Event key={it.id} observable={it.observable}/>)}
+        </div>
+    </div>
+}
+
+function RoomList() {
+    const rooms = useRooms()
+    const [roomId, setRoomId] = useState('!AtyuVyqNFWfJMwlbwR:matrix.org')
 
     return (
         <div>
@@ -61,9 +73,7 @@ function RoomList() {
                     </button>,
                 )}
             </div>
-            <div>
-                {room?.events?.map(it => <Event key={it.id} observable={it.observable}/>)}
-            </div>
+            <Room roomId={roomId}/>
         </div>
     )
 }

@@ -219,16 +219,19 @@ export class Matrix {
                 }
             }),
             scan((acc, curr = {events: []}) => {
-                const events = [...acc.events, ...curr.events].sort((a, b) => a.timestamp - b.timestamp)
+                // Don't do new data synthesis in scan, bc then new data is only available on the second+ batch of events
                 return {
                     ...acc,
                     ...curr,
                     // todo performance wise - should be able to just do merge part of merge sort instead of full sort
                     // todo dedup, though maybe even at an earlier stage (observalbe creation)
-                    events,
-                    messages: events.filter(it => it.type === 'm.room.message'),
+                    events: [...acc.events, ...curr.events].sort((a, b) => a.timestamp - b.timestamp),
                 }
             }),
+            map(it => ({
+                ...it,
+                messages: it.events.filter(it => it.type === 'm.room.message'),
+            })),
             shareReplay(1),
 
             catchError(error => {

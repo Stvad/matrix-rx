@@ -1,5 +1,5 @@
-import {useEffect, useState} from 'react'
-import {BehaviorSubject} from 'rxjs'
+import {DependencyList, useEffect, useState} from 'react'
+import {BehaviorSubject, Subscription} from 'rxjs'
 
 export const useObservableValue = <T>(subject: BehaviorSubject<T>) => {
     const [value, setValue] = useState(subject.getValue())
@@ -8,4 +8,11 @@ export const useObservableValue = <T>(subject: BehaviorSubject<T>) => {
         return () => sub.unsubscribe()
     }, [subject])
     return value
+}
+
+export function useWhileMounted(subsFactory: () => Subscription, deps: DependencyList = []) {
+    useEffect(() => {
+        const sub = subsFactory()
+        return () => sub?.unsubscribe()
+    }, deps)
 }

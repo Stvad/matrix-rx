@@ -331,7 +331,6 @@ export class Matrix {
             }),
         )
 
-
         return toBehaviorSubject(rawEvent$, init)
     }
 }

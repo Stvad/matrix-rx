@@ -2,7 +2,8 @@ import {BehaviorSubject, catchError, expand, map, merge, mergeMap, Observable, o
 import {ApiClient, PREFIX_REST} from './api/ApiClient'
 import {ajax} from 'rxjs/internal/ajax/ajax'
 import {
-    MatrixEvent, MessageEventContent,
+    MatrixEvent,
+    MessageEventContent,
     MessageEventType,
     ReplaceEvent,
     RoomData,
@@ -14,6 +15,7 @@ import {
 import {Omnibus} from 'omnibus-rxjs'
 import {getIncrementalFilter, getInitialFilter} from './sync-filter'
 import RestClient from './api/RestClient'
+import {Credentials} from './types/Credentials'
 
 const matrixEventBus = new Omnibus<MatrixEvent>()
 const controlBus = new Omnibus()
@@ -103,7 +105,21 @@ const toBehaviorSubject = <T>(observable: Observable<T>, initialValue: T) => {
     return subject
 }
 
+interface LoginParams { userId: any; password: any; server: string }
+
+export async function login(params: LoginParams) {
+    return await new ApiClient().login(params.userId, params.password, params.server)
+}
+
 export class Matrix {
+    static async fromUserAndPassword(params: LoginParams): Promise<Matrix> {
+        return Matrix.fromCredentials(await login(params))
+    }
+
+    static fromCredentials(creds: Credentials): Matrix {
+        return new Matrix(creds, new RestClient(creds.accessToken, creds.homeServer, PREFIX_REST))
+    }
+
     /**
      * kind of unhappy with having to have this, is there a bette way?
      */
@@ -333,10 +349,4 @@ export class Matrix {
 
         return toBehaviorSubject(rawEvent$, init)
     }
-}
-
-export const createClient = async (params) => {
-    const apiClient = new ApiClient()
-    const creds = await apiClient.login(params.userId, params.password, params.server)
-    return new Matrix(creds, new RestClient(creds.accessToken, params.server, PREFIX_REST))
 }

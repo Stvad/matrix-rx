@@ -62,8 +62,8 @@ export class ApiClient {
 			homeServer: server,
 		};
 
-		void this.storeCredentials(this.credentials)
-		void this.storeLastUserId()
+		// void this.storeCredentials(this.credentials)
+		// void this.storeLastUserId()
 		return this.credentials
 	}
 

@@ -1,9 +1,9 @@
 import './App.css'
-import {createClient} from './matrix'
+import {Matrix} from './matrix'
 import {RoomList} from './components'
-import {MatrixContext} from './components/context'
+import {Login} from './components/login'
 
-const client = await createClient({
+const client = await Matrix.fromUserAndPassword({
     userId: import.meta.env.VITE_TEST_USER,
     password: import.meta.env.VITE_TEST_PASS,
     server: 'matrix.org',
@@ -12,9 +12,9 @@ const client = await createClient({
 function DemoApp() {
     return (
         <div className="App">
-            <MatrixContext.Provider value={{client}}>
-                <RoomList />
-            </MatrixContext.Provider>
+            <Login>
+                <RoomList/>
+            </Login>
         </div>
     )
 }

@@ -107,8 +107,8 @@ export default class RestClient extends GenericRestClient {
 		return this.performApiPut<void>('pushrules/global/room/' + roomId, content);
 	}
 
-	public sendMessage(roomId: string, messageContent: MessageEventContent, tempId: string): Promise<void> {
-		return this.performApiPut<void>('rooms/' + roomId + '/send/m.room.message/' + tempId, messageContent);
+	public sendMessage(roomId: string, messageContent: MessageEventContent, transactionId: string): Promise<void> {
+		return this.performApiPut<void>('rooms/' + roomId + '/send/m.room.message/' + transactionId, messageContent);
 	}
 
 	public sendStateEvent(

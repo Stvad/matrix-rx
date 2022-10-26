@@ -36,6 +36,33 @@ function Event({observable}) {
     )
 }
 
+const textMessage = (text: string) => ({
+    msgtype: 'm.text',
+    body: text,
+})
+
+function MessageEntry({roomId}) {
+    const [text, setText] = useState('')
+
+    const sendMessage = () => {
+        client.sendMessage(roomId, textMessage(text))
+        setText('')
+    }
+    return (
+        <div className="messageEntry">
+            <textarea
+                value={text}
+                onChange={e => setText(e.target.value)}
+                onKeyDown={e => {
+                    if (e.key === 'Enter' && e.metaKey) sendMessage()
+                }}
+            />
+            <button onClick={sendMessage}>Send
+            </button>
+        </div>
+    )
+}
+
 function Room({roomId}) {
     const [room, setRoom] = useState(null)
 
@@ -54,9 +81,10 @@ function Room({roomId}) {
             client.triggerScroll(roomId, room?.backPaginationToken)
         }}>^
         </button>
-        <div>
+        <div className={'messages'}>
             {room?.messages?.map(it => <Event key={it.id} observable={it.observable}/>)}
         </div>
+        <MessageEntry roomId={roomId}/>
     </div>
 }
 

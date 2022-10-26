@@ -2,7 +2,7 @@ import {BehaviorSubject, catchError, expand, map, merge, mergeMap, Observable, o
 import {ApiClient, PREFIX_REST} from './api/ApiClient'
 import {ajax} from 'rxjs/internal/ajax/ajax'
 import {
-    MatrixEvent,
+    MatrixEvent, MessageEventContent,
     MessageEventType,
     ReplaceEvent,
     RoomData,
@@ -13,16 +13,21 @@ import {
 
 import {Omnibus} from 'omnibus-rxjs'
 import {getIncrementalFilter, getInitialFilter} from './sync-filter'
+import RestClient from './api/RestClient'
 
 const matrixEventBus = new Omnibus<MatrixEvent>()
 const controlBus = new Omnibus()
 
-interface Room {
+interface Room extends RoomData {
+    id: string
+    events: MatrixEvent[]
+    name: string
+    backPaginationToken: string
 }
 
 const syncTimeout = 10000
 
-function extractCoreRoomsInfo(rooms: { [id: string]: RoomData }) {
+function extractCoreRoomsInfo(rooms: { [id: string]: RoomData }): { [id: string]: Room } {
     function getRoomName(events: MatrixEvent[]) {
         // @ts-ignore https://github.com/microsoft/TypeScript/issues/48829
         const nameEvent = events.findLast(e => e.type === 'm.room.name') as RoomNameEvent | undefined
@@ -106,6 +111,7 @@ export class Matrix {
 
     constructor(
         private credentials: any,
+        private restClient: RestClient,
         private serverUrl: string = `https://matrix-client.matrix.org`) {
     }
 
@@ -132,6 +138,22 @@ export class Matrix {
 
         // todo add retry
         return callSync().pipe(expand(r => callSync(r.next_batch)))
+    }
+
+    /**
+     * This is right now not really in the paradigm of the rest of the client,
+     * need to reflect if there is a better way
+     *
+     * at the least I can use the ajax.put & return an observable for interface consistency
+     * not sure if that actually provides much benefit?
+     * cancellation is one potential benefit
+     *
+     * also maybe when I think about the buffer of sending messages - that can be an observable returning a local state,
+     * transitioning to a remote state
+     */
+    sendMessage(roomId: string, message: MessageEventContent) {
+        const transactionId = 'text' + new Date()
+        return this.restClient.sendMessage(roomId, message, transactionId)
     }
 
     observedEvent(event: MatrixEvent, observable?: Observable<MatrixEvent>): ObservedEvent {
@@ -224,7 +246,7 @@ export class Matrix {
                     ...acc,
                     ...curr,
                     // todo performance wise - should be able to just do merge part of merge sort instead of full sort
-                    // todo dedup, though maybe even at an earlier stage (observalbe creation)
+                    // todo dedup, though maybe even at an earlier stage (observable creation)
                     events: [...acc.events, ...curr.events].sort((a, b) => a.timestamp - b.timestamp),
                 }
             }),
@@ -317,5 +339,5 @@ export class Matrix {
 export const createClient = async (params) => {
     const apiClient = new ApiClient()
     const creds = await apiClient.login(params.userId, params.password, params.server)
-    return new Matrix(creds)
+    return new Matrix(creds, new RestClient(creds.accessToken, params.server, PREFIX_REST))
 }

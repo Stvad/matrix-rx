@@ -1,4 +1,4 @@
-import {EventsFilter_, MessageEventType, RoomFilter, SyncFilter} from './types/Api'
+import {EventsFilter, MessageEventType, RoomFilter, SyncFilter} from './types/Api'
 
 export const MESSAGE_COUNT_INC = 100
 const roomEventTypesToLoad: MessageEventType[] = [
@@ -18,7 +18,7 @@ const roomEventTypesToLoad: MessageEventType[] = [
 
 export function getIncrementalFilter(roomId?: string) {
 
-    const accountFilterRoom: EventsFilter_ = {
+    const accountFilterRoom: EventsFilter = {
         limit: 0,
         types: [],
     }
@@ -51,7 +51,7 @@ export function getIncrementalFilter(roomId?: string) {
         account_data: accountFilterRoom,
     }
 
-    const accountFilter: EventsFilter_ = {
+    const accountFilter: EventsFilter = {
         types: ['m.direct'],
     }
 
@@ -64,7 +64,7 @@ export function getIncrementalFilter(roomId?: string) {
 }
 
 export function getInitialFilter(roomId?: string) {
-    const accountFilterRoom_: EventsFilter_ = {
+    const accountFilterRoom_: EventsFilter = {
         limit: 0,
         types: [],
     }
@@ -97,7 +97,7 @@ export function getInitialFilter(roomId?: string) {
         account_data: accountFilterRoom_,
     }
 
-    const accountFilter_: EventsFilter_ = {
+    const accountFilter_: EventsFilter = {
         types: ['m.direct', 'm.push_rules'],
     }
 

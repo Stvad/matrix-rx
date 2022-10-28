@@ -11,6 +11,9 @@ function useInput(props: InputHTMLAttributes<HTMLInputElement>): [JSX.Element, s
 }
 
 export function Login(props) {
+    // todo hot to do logout well with this?
+    // maybe incapsulate in special hook or something
+
     const [credentials, setCredentials] = useLocalStorageState<Credentials>('credentials')
     const [client, setClient] = useState<Matrix>()
 

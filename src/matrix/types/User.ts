@@ -1,4 +1,4 @@
-import { RoomPhase } from './MatrixApi';
+import { RoomPhase } from './Api';
 
 // TODO: rename this 'member'
 export interface User {

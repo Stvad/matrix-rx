@@ -1,9 +1,12 @@
 import {useObservableValue, useWhileMounted} from '../core/observable'
 import {useEffect, useState} from 'react'
 import {useMatrixClient} from './context'
+import {AugmentedRoomData} from '../matrix'
+import {Observable} from 'rxjs'
+import {MatrixEvent} from '../matrix/types/Api'
 
 export function RoomList() {
-    const [rooms, setRooms] = useState([])
+    const [rooms, setRooms] = useState<AugmentedRoomData[]>([])
     const client = useMatrixClient()
     useWhileMounted(() => client.roomList().subscribe(it => setRooms(it)), [client])
 
@@ -26,9 +29,14 @@ export function RoomList() {
     )
 }
 
-function Room({roomId}) {
+interface RoomProps {
+    roomId: string
+}
+
+export function Room({roomId}: RoomProps) {
     const client = useMatrixClient()
-    const [room, setRoom] = useState(null)
+    // AugmentedRoomData is not quite right
+    const [room, setRoom] = useState<AugmentedRoomData>(null)
 
     useEffect(() => {
         const room$ = client.room(roomId)
@@ -52,7 +60,11 @@ function Room({roomId}) {
     </div>
 }
 
-export function Event({observable}) {
+interface EventProps {
+    observable: Observable<MatrixEvent>
+}
+
+export function Event({observable}: EventProps) {
     const event = useObservableValue(observable)
 
     return (
@@ -74,7 +86,11 @@ const textMessage = (text: string) => ({
     body: text,
 })
 
-function MessageEntry({roomId}) {
+interface MessageEntryProps {
+    roomId: string
+}
+
+export function MessageEntry({roomId}: MessageEntryProps) {
     const client = useMatrixClient()
     const [text, setText] = useState('')
 

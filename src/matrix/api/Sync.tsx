@@ -2,19 +2,19 @@ import React from 'react';
 import RestClient from './RestClient';
 // import DataStore from '../stores/DataStore';
 
-import { ErrorResponse_, EventsFilter_, RoomFilter_, SyncFilter_, SyncResponse_ } from '../types/MatrixApi';
+import { ErrorResponse, EventsFilter, RoomFilter, SyncFilter, SyncResponse } from '../types/Api';
 import {PREFIX_REST} from './ApiClient'
 const syncTimeout = 60000;
 
 
 export const MESSAGE_COUNT_INC = 100;
 
-const accountFilterRoom: EventsFilter_ = {
+const accountFilterRoom: EventsFilter = {
 	limit: 0,
 	types: [],
 };
 
-const roomFilter: RoomFilter_ = {
+const roomFilter: RoomFilter = {
 	timeline: {
 		limit: MESSAGE_COUNT_INC,
 		lazy_load_members: true,
@@ -54,11 +54,11 @@ const roomFilter: RoomFilter_ = {
 	account_data: accountFilterRoom,
 };
 
-const accountFilter: EventsFilter_ = {
+const accountFilter: EventsFilter = {
 	types: ['m.direct'],
 };
 
-const filter: SyncFilter_ = {
+const filter: SyncFilter = {
 	room: roomFilter,
 	account_data: accountFilter,
 	presence: { types: ['m.presence'] },
@@ -99,13 +99,13 @@ class Sync {
 		}
 	};
 
-	private initialStateSync = (): Promise<SyncResponse_> => {
-		const accountFilterRoom_: EventsFilter_ = {
+	private initialStateSync = (): Promise<SyncResponse> => {
+		const accountFilterRoom_: EventsFilter = {
 			limit: 0,
 			types: [],
 		};
 
-		const roomFilter_: RoomFilter_ = {
+		const roomFilter_: RoomFilter = {
 			timeline: {
 				limit: 0,
 				types: [],
@@ -132,11 +132,11 @@ class Sync {
 			account_data: accountFilterRoom_,
 		};
 
-		const accountFilter_: EventsFilter_ = {
+		const accountFilter_: EventsFilter = {
 			types: ['m.direct', 'm.push_rules'],
 		};
 
-		const filter_: SyncFilter_ = {
+		const filter_: SyncFilter = {
 			room: roomFilter_,
 			account_data: accountFilter_,
 			presence: { types: ['m.presence'] },
@@ -174,7 +174,7 @@ class Sync {
 					this.incrementalSync(syncData.next_batch!, syncTimeout);
 				}
 			})
-			.catch((error: ErrorResponse_) => {
+			.catch((error: ErrorResponse) => {
 				if (error.body) {
 					// UiStore.setOffline(true);
 					// this.serverOffline = true;

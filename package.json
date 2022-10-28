@@ -2,6 +2,9 @@
   "name": "matrix-rx",
   "version": "0.1.0",
   "type": "module",
+  "main": "lib/index.js",
+  "source": "src/index.ts",
+  "types": "lib/index.d.ts",
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",

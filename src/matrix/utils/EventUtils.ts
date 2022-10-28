@@ -1,9 +1,9 @@
-import { MessageEvent } from '../models/MessageEvent';
-import { MessageEvent_, RoomType } from '../models/MatrixApi';
+import { MessageEvent } from '../types/MessageEvent';
+import { MatrixEvent, RoomType } from '../types/Api';
 import * as _ from 'lodash';
 
 class EventUtils {
-	public filterEvent(event: MessageEvent_, roomType: RoomType): boolean {
+	public filterEvent(event: MatrixEvent, roomType: RoomType): boolean {
 		if (!event) {
 			return false;
 		}
@@ -34,7 +34,7 @@ class EventUtils {
 	}
 
 	public filterRoomEvents(
-		timelineEvents: MessageEvent_[],
+		timelineEvents: MatrixEvent[],
 		roomType: RoomType,
 		previousEventTime?: number
 	): MessageEvent[] {

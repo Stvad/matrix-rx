@@ -4,7 +4,7 @@ class AsyncStorage {
         return Promise.resolve<string | undefined>(value === null ? undefined : value);
     }
 
-    public setItem(key: string, value: string): Promise<void> {
+    public setItem(key: string, value: string) {
         try {
             window.localStorage.setItem(key, value);
         } catch (e) {

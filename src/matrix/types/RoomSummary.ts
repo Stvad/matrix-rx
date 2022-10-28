@@ -1,4 +1,4 @@
-import { MessageEvent_, RoomPhase, RoomType } from './MatrixApi';
+import { MatrixEvent, RoomPhase, RoomType } from './Api';
 import { MessageEvent } from './MessageEvent';
 import { User } from './User';
 
@@ -7,7 +7,7 @@ export interface RoomSummary {
 	phase: RoomPhase;
 	unreadCount: number;
 	members: { [id: string]: User };
-	timelineEvents: MessageEvent_[]; // raw
+	timelineEvents: MatrixEvent[]; // raw
 	newEvents: MessageEvent[]; // filtered
 	active?: boolean;
 	type?: RoomType;

@@ -221,7 +221,7 @@ export interface EmailTokenResponse_ {
 	sid: string; // session ID
 }
 
-export interface ErrorResponse_ {
+export interface ErrorResponse {
 	statusCode: number;
 	statusText?: string;
 	body: {
@@ -319,25 +319,25 @@ export interface GetRoomMembersResponse_ {
 	}[];
 }
 
-export interface EventsFilter_ {
+export interface EventsFilter {
 	types: MessageEventType[];
 	lazy_load_members?: boolean;
 	limit?: number;
 }
 
 export interface RoomFilter {
-	timeline: EventsFilter_;
-	state: EventsFilter_;
-	ephemeral: EventsFilter_;
-	account_data: EventsFilter_;
+	timeline: EventsFilter;
+	state: EventsFilter;
+	ephemeral: EventsFilter;
+	account_data: EventsFilter;
 	include_leave: boolean;
 	rooms?: string[];
 }
 
 export interface SyncFilter {
 	room: RoomFilter;
-	account_data: EventsFilter_;
-	presence: EventsFilter_;
+	account_data: EventsFilter;
+	presence: EventsFilter;
 }
 
 export interface RoomSummary {

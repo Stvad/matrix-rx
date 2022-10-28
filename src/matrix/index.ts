@@ -18,9 +18,15 @@ import RestClient from './api/RestClient'
 import {Credentials} from './types/Credentials'
 
 const matrixEventBus = new Omnibus<MatrixEvent>()
-const controlBus = new Omnibus()
 
-interface Room extends RoomData {
+interface ControlEvent{
+    type: 'loadEventFromPast'
+    [key: string]: any
+}
+
+const controlBus = new Omnibus<ControlEvent>()
+
+export interface AugmentedRoomData extends RoomData {
     id: string
     events: MatrixEvent[]
     name: string
@@ -29,7 +35,7 @@ interface Room extends RoomData {
 
 const syncTimeout = 10000
 
-function extractCoreRoomsInfo(rooms: { [id: string]: RoomData }): { [id: string]: Room } {
+function extractCoreRoomsInfo(rooms: { [id: string]: RoomData }): { [id: string]: AugmentedRoomData } {
     function getRoomName(events: MatrixEvent[]) {
         // @ts-ignore https://github.com/microsoft/TypeScript/issues/48829
         const nameEvent = events.findLast(e => e.type === 'm.room.name') as RoomNameEvent | undefined
@@ -202,7 +208,7 @@ export class Matrix {
     }
 
     scrollOnTrigger(roomId: string) {
-        return controlBus.query((it => it.type === 'scroll' && it.roomId === roomId))
+        return controlBus.query((it => it.type === 'loadEventFromPast' && it.roomId === roomId))
             .pipe(
                 tap(it => console.log('scrolling', it)),
                 mergeMap((it) => this.scroll(roomId, it.from, it.to)),
@@ -210,7 +216,7 @@ export class Matrix {
     }
 
     triggerScroll(roomId: string, from: string, to?: string) {
-        controlBus.trigger({type: 'scroll', roomId, from, to})
+        controlBus.trigger({type: 'loadEventFromPast', roomId, from, to})
     }
 
     room(roomId: string): Observable<RoomData> {
@@ -283,7 +289,7 @@ export class Matrix {
         eventObservables.forEach(it => this.observableRegistry.set(it.id, it.observable))
     }
 
-    roomList(): Observable<Room[]> {
+    roomList(): Observable<AugmentedRoomData[]> {
         return this.sync().pipe(
             map(it => it.rooms?.join ?? {}),
             map(extractCoreRoomsInfo),

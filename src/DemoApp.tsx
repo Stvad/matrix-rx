@@ -1,4 +1,3 @@
-import './App.css'
 import {RoomList} from './components'
 import {Login} from './components/login'
 

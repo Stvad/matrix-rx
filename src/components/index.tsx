@@ -10,7 +10,8 @@ export function RoomList() {
     const client = useMatrixClient()
     useWhileMounted(() => client.roomList().subscribe(it => setRooms(it)), [client])
 
-    const [roomId, setRoomId] = useState('!AtyuVyqNFWfJMwlbwR:matrix.org')
+    // todo use localstorage to save last room
+    const [roomId, setRoomId] = useState<string>()
 
     return (
         <div>
@@ -24,7 +25,7 @@ export function RoomList() {
                     </button>,
                 )}
             </div>
-            <Room roomId={roomId}/>
+            {roomId ? <Room roomId={roomId}/> : <div>No room selected</div>}
         </div>
     )
 }
@@ -53,7 +54,12 @@ export function Room({roomId}: RoomProps) {
             client.triggerScroll(roomId, room?.backPaginationToken)
         }}>^
         </button>
-        <div className={'messages'}>
+        <div
+            className={'messages'}
+            css={{
+                marginBottom: '1em',
+            }}
+        >
             {room?.messages?.map(it => <Event key={it.id} observable={it.observable}/>)}
         </div>
         <MessageEntry roomId={roomId}/>
@@ -69,12 +75,32 @@ export function Event({observable}: EventProps) {
 
     return (
         <div>
-            <div className="messageBody">
-                <div className="messageSender">{event?.sender}</div>
+            <div
+                className="messageBody"
+                css={{
+                    display: 'flex',
+                }}
+            >
+                <div
+                    className="messageSender"
+                    css={{
+                        fontWeight: 'bold',
+                    }}
+                >{event?.sender}</div>
                 :
-                <div className="messageContent">{event?.content.body}</div>
+                <div
+                    className="messageContent"
+                    css={{
+                        marginLeft: '0.5em',
+                    }}
+                >{event?.content.body}</div>
             </div>
-            <div className={'messageChildren'}>
+            <div
+                className={'messageChildren'}
+                css={{
+                    marginLeft: '1em',
+                }}
+            >
                 {event?.children?.map(it => <Event key={it.id} observable={it.observable}/>)}
             </div>
         </div>
@@ -99,12 +125,21 @@ export function MessageEntry({roomId}: MessageEntryProps) {
         setText('')
     }
     return (
-        <div className="messageEntry">
+        <div
+            className="messageEntry"
+            css={{
+                display: 'flex',
+            }}
+        >
             <textarea
                 value={text}
                 onChange={e => setText(e.target.value)}
                 onKeyDown={e => {
                     if (e.key === 'Enter' && e.metaKey) sendMessage()
+                }}
+                css={{
+                    flex: 1,
+                    marginRight: '0.5em',
                 }}
             />
             <button onClick={sendMessage}>Send

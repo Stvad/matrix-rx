@@ -9,9 +9,11 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "compile": "tsc",
+    "watch": "tsc --watch",
     "preview": "vite preview"
   },
   "dependencies": {
+    "@emotion/react": "^11.10.5",
     "@react-rxjs/core": "^0.10.3",
     "@react-rxjs/utils": "^0.9.5",
     "lodash": "^4.17.21",
@@ -22,6 +24,7 @@
     "simplerestclients": "^1.0.0"
   },
   "devDependencies": {
+    "@emotion/babel-plugin": "^11.10.5",
     "@types/react": "^18.0.17",
     "@types/react-dom": "^18.0.6",
     "@vitejs/plugin-react": "^2.1.0",

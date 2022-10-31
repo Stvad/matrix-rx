@@ -1,4 +1,4 @@
-import {Dispatch, InputHTMLAttributes, SetStateAction, useState} from 'react'
+import {Dispatch, InputHTMLAttributes, ReactNode, SetStateAction, useState} from 'react'
 import {Credentials} from '../matrix/types/Credentials'
 import {login, Matrix} from '../matrix'
 import {useLocalStorageState} from '../core/react'
@@ -10,11 +10,16 @@ function useInput(props: InputHTMLAttributes<HTMLInputElement>): [JSX.Element, s
     return [<input {...props} value={value} onChange={it=> setValue(it.target.value)} />, value, setValue]
 }
 
-export function Login(props) {
-    // todo hot to do logout well with this?
-    // maybe incapsulate in special hook or something
+interface LoginProps {
+    onLogin?: (credentials: Credentials) => void
+    children?: ReactNode
+}
 
-    const [credentials, setCredentials] = useLocalStorageState<Credentials>('credentials')
+export function Login(props: LoginProps) {
+    // todo hot to do logout well with this?
+    // maybe encapsulate in special hook or something
+
+    const [credentials, setCredentials] = useLocalStorageState<Credentials>('matrix-credentials')
     const [client, setClient] = useState<Matrix>()
 
     const [userNameInput, userName] = useInput({placeholder: 'Username'})
@@ -37,7 +42,9 @@ export function Login(props) {
         {serverInput}
         <button
             onClick={async () => {
-               setCredentials(await login({userId: userName, password: password, server: server}))
+                const newCreds = await login({userId: userName, password: password, server: server})
+                setCredentials(newCreds)
+                props.onLogin?.(newCreds)
             }}
         >Login</button>
     </div>

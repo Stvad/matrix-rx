@@ -1,4 +1,5 @@
-import {MatrixEvent} from './types/Api'
+import {MatrixEvent, MessageEventType} from './types/Api'
+import {Observable} from 'rxjs'
 
 const hasRelationships = (event: MatrixEvent) => event.content['m.relates_to']
 export const getEventsWithRelationships = (events: MatrixEvent[]) => events.filter(hasRelationships)
@@ -9,4 +10,11 @@ export function isThreadChildOf(threaded: MatrixEvent, root: MatrixEvent) {
 
     return threadTypes.includes(threaded.content['m.relates_to']?.rel_type!) &&
         threaded.content['m.relates_to']?.event_id === root.event_id
+}
+
+export interface ObservedEvent {
+    id: string,
+    timestamp: number,
+    type: MessageEventType,
+    observable: Observable<MatrixEvent>,
 }

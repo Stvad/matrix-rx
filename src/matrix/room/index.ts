@@ -1,5 +1,6 @@
-import {MatrixEvent, RoomData, RoomNameEvent} from './types/Api'
-import {AutocompleteConfigurationEvent} from './extensions/autocomplete'
+import {MatrixEvent, RoomData, RoomNameEvent} from '../types/Api'
+import {AutocompleteConfigurationEvent} from '../extensions/autocomplete'
+import {ObservedEvent} from '../event'
 
 export interface AugmentedRoomData extends RoomData {
     id: string
@@ -7,6 +8,7 @@ export interface AugmentedRoomData extends RoomData {
     name: string
     backPaginationToken: string
     autocompleteSuggestions: string[]
+    messages?: ObservedEvent[]
 }
 
 function getRoomName(events: MatrixEvent[]) {

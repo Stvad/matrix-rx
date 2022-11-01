@@ -1,25 +1,10 @@
-import {
-    BehaviorSubject,
-    catchError,
-    expand,
-    filter,
-    map,
-    merge,
-    mergeMap,
-    Observable,
-    of,
-    scan,
-    shareReplay,
-    tap,
-} from 'rxjs'
+import {BehaviorSubject, catchError, expand, map, Observable, of, scan, shareReplay, tap} from 'rxjs'
 import {ApiClient, PREFIX_REST} from './api/ApiClient'
 import {ajax} from 'rxjs/internal/ajax/ajax'
 import {
     MatrixEvent,
     MessageEventContent,
-    MessageEventType,
     ReplaceEvent,
-    RoomData,
     RoomMessagesResponse,
     StateEvent,
     SyncResponse,
@@ -29,39 +14,11 @@ import {Omnibus} from 'omnibus-rxjs'
 import {getIncrementalFilter, getInitialFilter} from './sync-filter'
 import RestClient from './api/RestClient'
 import {Credentials} from './types/Credentials'
-import {AugmentedRoomData, createAugmentedRoom, extractCoreRoomsInfo} from './room'
-import {getEventsWithRelationships, getRootEvents, isThreadChildOf} from './event'
-
-const matrixEventBus = new Omnibus<MatrixEvent>()
-
-interface ControlEvent {
-    type: 'loadEventFromPast'
-
-    [key: string]: any
-}
-
-const controlBus = new Omnibus<ControlEvent>()
+import {AugmentedRoomData, extractCoreRoomsInfo} from './room'
+import {isThreadChildOf, ObservedEvent} from './event'
+import {RoomSubject} from './room/subject'
 
 const syncTimeout = 10000
-
-function emitEvents(events: MatrixEvent[]) {
-    // todo
-    // solution for timeouts is probs for the event observable be "rememberLast" by default
-    // though if nobody is subscribed it will still not help.
-    // I almost want to supply a default value to the observable, which should be possible
-    // bind does this.
-    // but that's not sufficient for relations - if I emit relations and nobody is subscribed - they just fall through
-    // less observable and more queue?
-
-    events?.forEach(it => matrixEventBus.trigger(it))
-}
-
-interface ObservedEvent {
-    id: string,
-    timestamp: number,
-    type: MessageEventType,
-    observable: Observable<MatrixEvent>,
-}
 
 const toBehaviorSubject = <T>(observable: Observable<T>, initialValue: T) => {
     /**
@@ -92,6 +49,14 @@ export async function login(params: LoginParams) {
     return await new ApiClient().login(params.userId, params.password, params.server)
 }
 
+interface LoadHistoricEventsParams {
+    roomId: string
+    from: string
+    to?: string
+    direction?: 'b' | 'f'
+    limit?: string
+}
+
 export class Matrix {
     static async fromUserAndPassword(params: LoginParams): Promise<Matrix> {
         return Matrix.fromCredentials(await login(params))
@@ -109,7 +74,9 @@ export class Matrix {
     constructor(
         private credentials: Credentials,
         private restClient: RestClient,
-        private serverUrl: string = `https://matrix-client.matrix.org`) {
+        private serverUrl: string = `https://matrix-client.matrix.org`,
+        public matrixEventBus: Omnibus<MatrixEvent> = new Omnibus(),
+    ) {
     }
 
     // todo probably by default get very generic info about rooms - no messages
@@ -146,11 +113,19 @@ export class Matrix {
         }
     }
 
-    scroll(roomId: string, from: string, to?: string): Observable<{ events: MatrixEvent[] }> {
+    loadHistoricEvents(
+        {
+            roomId,
+            from,
+            to,
+            direction = 'b',
+            limit = '100',
+        }: LoadHistoricEventsParams,
+    ): Observable<{ events: MatrixEvent[] }> {
         const params = new URLSearchParams({
             from: from,
-            dir: 'b',
-            limit: '100', // todo make this configurable
+            dir: direction,
+            limit, // todo make this configurable
             access_token: this.credentials.accessToken,
         })
         if (to) {
@@ -166,86 +141,8 @@ export class Matrix {
             )
     }
 
-    scrollOnTrigger(roomId: string) {
-        return controlBus.query((it => it.type === 'loadEventFromPast' && it.roomId === roomId))
-            .pipe(
-                tap(it => console.log('scrolling', it)),
-                mergeMap((it) => this.scroll(roomId, it.from, it.to)),
-            )
-    }
-
-    triggerScroll(roomId: string, from: string, to?: string) {
-        controlBus.trigger({type: 'loadEventFromPast', roomId, from, to})
-    }
-
-    room(roomId: string): Observable<RoomData> {
-        const roomFromSync = this.sync(roomId).pipe(
-            tap(console.log),
-            map(it => it.rooms?.join ?? {}),
-            filter(it => it[roomId]),
-            map(it => createAugmentedRoom(roomId, it[roomId]))
-        )
-
-        return merge(roomFromSync, this.scrollOnTrigger(roomId)).pipe(
-            map(it => {
-                if (!it?.events) return it
-
-                const rootEventsObservables = getRootEvents(it.events).map(it => this.observedEvent(it))
-                this.addToRegistry(rootEventsObservables)
-
-                const eventsWithRelationshipsObservable =
-                    getEventsWithRelationships(it.events).map(it => this.observedEvent(it))
-                this.addToRegistry(eventsWithRelationshipsObservable)
-
-                if (it?.events) emitEvents(it.events)
-
-                /**
-                 * right now second+ order relations are dropped
-                 * (e.g. edit a message in a thread)
-                 * bc. there is no listener for it either on top or "relates to" level
-                 *
-                 * should I create those observables for all events, and then retrieve them by id when needed?
-                 * - this is probably ok, maybe avoiding some obviously "leaf" events
-                 * - for server supported relations - it seems that the server will include some relations inthe root event
-                 *   - not clear if it's part of the spec/will there be all events/etc
-                 *   - also probably prevents from supporting custom relations?
-                 *   - see https://spec.matrix.org/v1.3/client-server-api/#aggregations
-                 *     - it seems for threads it'd include just the latest event, which is not very useful
-                 *     - for reactions it'd include all reactions, which can be used to assemble the event faster
-                 * other option is to re-emit events that were not consumed by anyone, but that probably would go bad places
-                 *
-                 */
-
-                return {
-                    ...it,
-                    events: rootEventsObservables,
-                }
-            }),
-            scan((acc, curr = {events: []}) => {
-                // Don't do new data synthesis in scan, bc then new data is only available on the second+ batch of events
-                return {
-                    ...acc,
-                    ...curr,
-                    // todo performance wise - should be able to just do merge part of merge sort instead of full sort
-                    // todo dedup, though maybe even at an earlier stage (observable creation)
-                    events: [...acc.events, ...curr.events].sort((a, b) => a.timestamp - b.timestamp),
-                }
-            }),
-            map(it => ({
-                ...it,
-                messages: it.events.filter(it => it.type === 'm.room.message'),
-            })),
-            shareReplay(1),
-
-            catchError(error => {
-                console.log('error: ', error)
-                return of(error)
-            }),
-        )
-    }
-
-    private addToRegistry(eventObservables: { observable: Observable<MatrixEvent>; id: string }[]) {
-        eventObservables.forEach(it => this.observableRegistry.set(it.id, it.observable))
+    room(roomId: string): RoomSubject {
+        return new RoomSubject(roomId, this, this.matrixEventBus)
     }
 
     roomList(): Observable<AugmentedRoomData[]> {
@@ -299,7 +196,7 @@ export class Matrix {
             return it.event_id === eventId || unprocessedRelationship
         }
 
-        const rawEvent$ = matrixEventBus.query(eventOfInterest).pipe(
+        const rawEvent$ = this.matrixEventBus.query(eventOfInterest).pipe(
             tap(it => console.log(it.event_id === eventId ? 'match on id' : 'match on rel')),
             scan((acc, curr) => {
                 if (acc.event_id === curr.event_id) {

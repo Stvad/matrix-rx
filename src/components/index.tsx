@@ -5,6 +5,7 @@ import {Observable} from 'rxjs'
 import {MatrixEvent} from '../matrix/types/Api'
 import {MessageEditor} from './message-editor'
 import {AugmentedRoomData} from '../matrix/room'
+import {RoomSubject} from '../matrix/room-subject'
 
 export function RoomList() {
     const [rooms, setRooms] = useState<AugmentedRoomData[]>([])
@@ -39,9 +40,11 @@ export function Room({roomId}: RoomProps) {
     const client = useMatrixClient()
     // AugmentedRoomData is not quite right
     const [room, setRoom] = useState<AugmentedRoomData | null>(null)
+    const [room$, setRoom$] = useState<RoomSubject | null>(null)
 
     useEffect(() => {
         const room$ = client.room(roomId)
+        setRoom$(room$)
         const sub = room$.subscribe((it) => {
             setRoom(it)
         })
@@ -56,7 +59,7 @@ export function Room({roomId}: RoomProps) {
     return <div>
         <div className="roomName">{room?.name}</div>
         <button onClick={() => {
-            client.triggerScroll(roomId, room?.backPaginationToken)
+            room$?.loadOlderEvents(room?.backPaginationToken)
         }}>^
         </button>
         <div

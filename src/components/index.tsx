@@ -4,6 +4,7 @@ import {useMatrixClient} from './context'
 import {AugmentedRoomData} from '../matrix'
 import {Observable} from 'rxjs'
 import {MatrixEvent} from '../matrix/types/Api'
+import {MessageEditor} from './message-editor'
 
 export function RoomList() {
     const [rooms, setRooms] = useState<AugmentedRoomData[]>([])
@@ -62,7 +63,7 @@ export function Room({roomId}: RoomProps) {
         >
             {room?.messages?.map(it => <Event key={it.id} observable={it.observable}/>)}
         </div>
-        <MessageEntry roomId={roomId}/>
+        <MessageEditor roomId={roomId}/>
     </div>
 }
 
@@ -103,47 +104,6 @@ export function Event({observable}: EventProps) {
             >
                 {event?.children?.map(it => <Event key={it.id} observable={it.observable}/>)}
             </div>
-        </div>
-    )
-}
-
-const textMessage = (text: string) => ({
-    msgtype: 'm.text',
-    body: text,
-})
-
-interface MessageEntryProps {
-    roomId: string
-}
-
-export function MessageEntry({roomId}: MessageEntryProps) {
-    const client = useMatrixClient()
-    const [text, setText] = useState('')
-
-    const sendMessage = () => {
-        client.sendMessage(roomId, textMessage(text))
-        setText('')
-    }
-    return (
-        <div
-            className="messageEntry"
-            css={{
-                display: 'flex',
-            }}
-        >
-            <textarea
-                value={text}
-                onChange={e => setText(e.target.value)}
-                onKeyDown={e => {
-                    if (e.key === 'Enter' && e.metaKey) sendMessage()
-                }}
-                css={{
-                    flex: 1,
-                    marginRight: '0.5em',
-                }}
-            />
-            <button onClick={sendMessage}>Send
-            </button>
         </div>
     )
 }

@@ -1,4 +1,17 @@
-import {BehaviorSubject, catchError, expand, map, merge, mergeMap, Observable, of, scan, shareReplay, tap} from 'rxjs'
+import {
+    BehaviorSubject,
+    catchError,
+    expand,
+    filter,
+    map,
+    merge,
+    mergeMap,
+    Observable,
+    of,
+    scan,
+    shareReplay,
+    tap,
+} from 'rxjs'
 import {ApiClient, PREFIX_REST} from './api/ApiClient'
 import {ajax} from 'rxjs/internal/ajax/ajax'
 import {
@@ -8,7 +21,7 @@ import {
     ReplaceEvent,
     RoomData,
     RoomMessagesResponse,
-    RoomNameEvent,
+    StateEvent,
     SyncResponse,
 } from './types/Api'
 
@@ -16,55 +29,20 @@ import {Omnibus} from 'omnibus-rxjs'
 import {getIncrementalFilter, getInitialFilter} from './sync-filter'
 import RestClient from './api/RestClient'
 import {Credentials} from './types/Credentials'
+import {AugmentedRoomData, createAugmentedRoom, extractCoreRoomsInfo} from './room'
+import {getEventsWithRelationships, getRootEvents, isThreadChildOf} from './event'
 
 const matrixEventBus = new Omnibus<MatrixEvent>()
 
-interface ControlEvent{
+interface ControlEvent {
     type: 'loadEventFromPast'
+
     [key: string]: any
 }
 
 const controlBus = new Omnibus<ControlEvent>()
 
-export interface AugmentedRoomData extends RoomData {
-    id: string
-    events: MatrixEvent[]
-    name: string
-    backPaginationToken: string
-}
-
 const syncTimeout = 10000
-
-function extractCoreRoomsInfo(rooms: { [id: string]: RoomData }): { [id: string]: AugmentedRoomData } {
-    function getRoomName(events: MatrixEvent[]) {
-        // @ts-ignore https://github.com/microsoft/TypeScript/issues/48829
-        const nameEvent = events.findLast(e => e.type === 'm.room.name') as RoomNameEvent | undefined
-        return nameEvent?.content.name ?? ''
-    }
-
-    function extractRoomInfo(id: string) {
-        const room = rooms[id]
-        // todo members
-        const loadedRoomEvents = [...room.state.events, ...room.timeline.events]
-        return {
-            id,
-            events: loadedRoomEvents,
-            name: getRoomName(loadedRoomEvents),
-            /** todo
-             * the story is more complicated, can have windows of unloaded messages, etc
-             */
-            backPaginationToken: room.timeline.prev_batch,
-            ...room,
-        }
-    }
-
-    return Object.fromEntries(Object.keys(rooms).map(it => [it, extractRoomInfo(it)]))
-}
-
-const hasRelationships = (event: MatrixEvent) => event.content['m.relates_to']
-
-const getEventsWithRelationships = (events: MatrixEvent[]) => events.filter(hasRelationships)
-const getRootEvents = (events: MatrixEvent[]) => events.filter(it => !hasRelationships(it))
 
 function emitEvents(events: MatrixEvent[]) {
     // todo
@@ -76,13 +54,6 @@ function emitEvents(events: MatrixEvent[]) {
     // less observable and more queue?
 
     events?.forEach(it => matrixEventBus.trigger(it))
-}
-
-function isThreadChildOf(threaded: MatrixEvent, root: MatrixEvent) {
-    const threadTypes = ['m.thread', 'm.glue-thread']
-
-    return threadTypes.includes(threaded.content['m.relates_to']?.rel_type!) &&
-        threaded.content['m.relates_to']?.event_id === root.event_id
 }
 
 interface ObservedEvent {
@@ -111,7 +82,11 @@ const toBehaviorSubject = <T>(observable: Observable<T>, initialValue: T) => {
     return subject
 }
 
-interface LoginParams { userId: any; password: any; server: string }
+interface LoginParams {
+    userId: any;
+    password: any;
+    server: string
+}
 
 export async function login(params: LoginParams) {
     return await new ApiClient().login(params.userId, params.password, params.server)
@@ -132,7 +107,7 @@ export class Matrix {
     private observableRegistry = new Map<string, Observable<MatrixEvent>>()
 
     constructor(
-        private credentials: any,
+        private credentials: Credentials,
         private restClient: RestClient,
         private serverUrl: string = `https://matrix-client.matrix.org`) {
     }
@@ -160,22 +135,6 @@ export class Matrix {
 
         // todo add retry
         return callSync().pipe(expand(r => callSync(r.next_batch)))
-    }
-
-    /**
-     * This is right now not really in the paradigm of the rest of the client,
-     * need to reflect if there is a better way
-     *
-     * at the least I can use the ajax.put & return an observable for interface consistency
-     * not sure if that actually provides much benefit?
-     * cancellation is one potential benefit
-     *
-     * also maybe when I think about the buffer of sending messages - that can be an observable returning a local state,
-     * transitioning to a remote state
-     */
-    sendMessage(roomId: string, message: MessageEventContent) {
-        const transactionId = 'text' + new Date()
-        return this.restClient.sendMessage(roomId, message, transactionId)
     }
 
     observedEvent(event: MatrixEvent, observable?: Observable<MatrixEvent>): ObservedEvent {
@@ -223,9 +182,9 @@ export class Matrix {
         const roomFromSync = this.sync(roomId).pipe(
             tap(console.log),
             map(it => it.rooms?.join ?? {}),
-            map(extractCoreRoomsInfo),
-            map(it => it[roomId]))
-
+            filter(it => it[roomId]),
+            map(it => createAugmentedRoom(roomId, it[roomId]))
+        )
 
         return merge(roomFromSync, this.scrollOnTrigger(roomId)).pipe(
             map(it => {
@@ -354,5 +313,28 @@ export class Matrix {
         )
 
         return toBehaviorSubject(rawEvent$, init)
+    }
+
+    /**
+     * This is right now not really in the paradigm of the rest of the client,
+     * need to reflect if there is a better way
+     *
+     * at the least I can use the ajax.put & return an observable for interface consistency
+     * not sure if that actually provides much benefit?
+     * cancellation is one potential benefit
+     *
+     * also maybe when I think about the buffer of sending messages - that can be an observable returning a local state,
+     * transitioning to a remote state
+     */
+    sendMessage(roomId: string, message: MessageEventContent) {
+        const transactionId = 'text' + new Date()
+        return this.restClient.sendMessage(roomId, message, transactionId)
+    }
+
+    sendStateEvent(
+        roomId: string,
+        stateEvent: StateEvent,
+    ) {
+        return this.restClient.sendStateEvent(roomId, stateEvent.type, stateEvent.content, stateEvent.stateKey)
     }
 }

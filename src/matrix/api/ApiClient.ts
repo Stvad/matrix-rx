@@ -16,7 +16,7 @@ import {
 	RegisterStageType,
 	RoomType,
 	GetPublicRoomsResponse_,
-	StateEventContent_,
+	StateEventContent,
 	StateEventType,
 	MessageEventContent,
 	PusherParam_,
@@ -355,7 +355,7 @@ export class ApiClient {
 	public sendStateEvent(
 		roomId: string,
 		type: StateEventType,
-		content: StateEventContent_,
+		content: StateEventContent,
 		stateKey?: string
 	): Promise<void> {
 		const restClient = new RestClient(this.credentials.accessToken, this.credentials.homeServer, PREFIX_REST);

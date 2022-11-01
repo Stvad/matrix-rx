@@ -10,7 +10,7 @@ import {
 	NewRoomOptions_,
 	GetPublicRoomsResponse_,
 	MatrixEvent,
-	StateEventContent_,
+	StateEventContent,
 	StateEventType,
 	GetJoinedMembersResponse_,
 	GetRoomMembersResponse_,
@@ -114,7 +114,7 @@ export default class RestClient extends GenericRestClient {
 	public sendStateEvent(
 		roomId: string,
 		type: StateEventType,
-		content: StateEventContent_,
+		content: StateEventContent,
 		stateKey?: string
 	): Promise<void> {
 		return this.performApiPut<void>('rooms/' + roomId + '/state/' + type + '/' + stateKey, content);

@@ -20,6 +20,7 @@ import AutoLinkPlugin from './plugins/auto-link'
 import {OnChangePlugin} from '@lexical/react/LexicalOnChangePlugin'
 import {EditorState, LexicalEditor} from 'lexical'
 import {BubbleUpEditorPlugin} from './plugins/emit-editor'
+import {MentionNode} from './nodes/mention'
 
 function Placeholder() {
     return <div className="editor-placeholder">Message...</div>
@@ -44,15 +45,18 @@ const editorConfig = {
         TableRowNode,
         AutoLinkNode,
         LinkNode,
+        MentionNode,
     ],
 }
 
 interface EditorProps {
     onChange: (editorState: EditorState, editor: LexicalEditor) => void;
     emitEditor: (editor: LexicalEditor) => void;
+    // todo probably need to pass nodes too
+    additionalPlugins?: JSX.Element[];
 }
 
-export function Editor({onChange, emitEditor}: EditorProps) {
+export function Editor({onChange, emitEditor, additionalPlugins}: EditorProps) {
     return (
         <LexicalComposer initialConfig={editorConfig}>
             <div className="editor-container">
@@ -72,6 +76,7 @@ export function Editor({onChange, emitEditor}: EditorProps) {
                     <OnChangePlugin onChange={onChange}/>
                     <ClearEditorPlugin/>
                     <BubbleUpEditorPlugin emitEditor={emitEditor}/>
+                    {additionalPlugins}
                 </div>
             </div>
         </LexicalComposer>

@@ -1,10 +1,10 @@
 import {useObservableValue, useWhileMounted} from '../core/observable'
 import {useEffect, useState} from 'react'
 import {useMatrixClient} from './context'
-import {AugmentedRoomData} from '../matrix'
 import {Observable} from 'rxjs'
 import {MatrixEvent} from '../matrix/types/Api'
 import {MessageEditor} from './message-editor'
+import {AugmentedRoomData} from '../matrix/room'
 
 export function RoomList() {
     const [rooms, setRooms] = useState<AugmentedRoomData[]>([])
@@ -38,7 +38,7 @@ interface RoomProps {
 export function Room({roomId}: RoomProps) {
     const client = useMatrixClient()
     // AugmentedRoomData is not quite right
-    const [room, setRoom] = useState<AugmentedRoomData>(null)
+    const [room, setRoom] = useState<AugmentedRoomData | null>(null)
 
     useEffect(() => {
         const room$ = client.room(roomId)
@@ -49,6 +49,10 @@ export function Room({roomId}: RoomProps) {
     }, [roomId])
 
     console.log({room})
+    if (!room) {
+        return <div>Loading...</div>
+    }
+
     return <div>
         <div className="roomName">{room?.name}</div>
         <button onClick={() => {
@@ -63,7 +67,7 @@ export function Room({roomId}: RoomProps) {
         >
             {room?.messages?.map(it => <Event key={it.id} observable={it.observable}/>)}
         </div>
-        <MessageEditor roomId={roomId}/>
+        <MessageEditor room={room}/>
     </div>
 }
 

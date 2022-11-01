@@ -5,14 +5,14 @@ export type RoomPhase = 'join' | 'invite' | 'leave';
 export type LoginIdentifierType = 'm.id.user' | 'm.id.thirdparty' | 'm.id.phone';
 export type LoginParamType = 'm.login.password' | 'm.login.token';
 export type RegisterStageType = 'm.login.recaptcha' | 'm.login.terms' | 'm.login.dummy' | 'm.login.email.identity';
-export type StateEventType = 'm.room.avatar' | 'm.room.name';
+export type StateEventType = 'm.room.avatar' | 'm.room.name' |
+	'matrix-rx.autocomplete'; // todo non-spec
 export type MessageEventType =
+	| StateEventType
 	| 'm.room.third_party_invite'
 	| 'm.room.redaction'
 	| 'm.room.message'
 	| 'm.room.member'
-	| 'm.room.name'
-	| 'm.room.avatar'
 	| 'm.room.canonical_alias'
 	| 'm.room.join_rules'
 	| 'm.room.power_levels'
@@ -288,11 +288,17 @@ export interface RoomMessagesResponse {
 	chunk: MatrixEvent[]
 }
 
-export interface StateEventContent_ {
+export interface StateEventContent {
 	name?: string;
 	url?: string;
 	size?: number;
 	mimetype?: string;
+}
+
+export interface StateEvent {
+	type: StateEventType;
+	content: any;
+	stateKey?: string;
 }
 
 export interface GetJoinedMembersResponse_ {

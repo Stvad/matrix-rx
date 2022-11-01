@@ -9,6 +9,8 @@ import {
     TRANSFORMERS,
 } from '@lexical/markdown'
 import {EditorState, LexicalEditor} from 'lexical'
+import {MentionsPlugin} from './editor/plugins/mentions'
+import {AugmentedRoomData} from '../matrix/room'
 
 const textMessage = (text: string) => ({
     msgtype: 'm.text',
@@ -23,17 +25,17 @@ const htmlMessage = (html: string, markdown: string) => ({
 })
 
 export interface MessageEditorProps {
-    roomId: string
+    room: AugmentedRoomData
 }
 
-export function MessageEditor({roomId}: MessageEditorProps) {
+export function MessageEditor({room}: MessageEditorProps) {
     const client = useMatrixClient()
     const [html, setHtml] = useState('')
     const [markdown, setMarkdown] = useState('')
     const [editor, setEditor] = useState<LexicalEditor | null>(null)
 
     const sendMessage = () => {
-        client.sendMessage(roomId, htmlMessage(html, markdown))
+        client.sendMessage(room.id, htmlMessage(html, markdown))
         editor?.dispatchCommand(CLEAR_EDITOR_COMMAND, undefined)
     }
     return (
@@ -51,7 +53,11 @@ export function MessageEditor({roomId}: MessageEditorProps) {
                         setHtml($generateHtmlFromNodes(editor))
                         setMarkdown($convertToMarkdownString(TRANSFORMERS))
                     })
-                }}/>
+                }}
+                additionalPlugins={[
+                    <MentionsPlugin suggestions={room.autocompleteSuggestions}/>
+                ]}
+            />
             <button onClick={sendMessage}>Send
             </button>
         </div>

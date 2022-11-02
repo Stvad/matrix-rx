@@ -64,6 +64,10 @@ export class RoomSubject extends ReplaySubject<AugmentedRoomData> {
             filter(it => it[this.roomId]),
             map(it => createAugmentedRoom(this.roomId, it[this.roomId])),
         )
+        /**
+         * todo: I need to do the event merging before deriving the room state
+         * otherwise state updates like room rename, etc won't be taken into account
+         */
 
         return merge(roomFromSync, this.onLoadEventsRequest()).pipe(
             map(it => {

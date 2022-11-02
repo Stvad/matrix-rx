@@ -14,7 +14,7 @@ import {Omnibus} from 'omnibus-rxjs'
 import {getIncrementalFilter, getInitialFilter} from './sync-filter'
 import RestClient from './api/RestClient'
 import {Credentials} from './types/Credentials'
-import {AugmentedRoomData, extractCoreRoomsInfo} from './room'
+import {AugmentedRoomData, buildRoomHierarchy, extractRoomsInfo} from './room'
 import {isThreadChildOf, ObservedEvent} from './event'
 import {RoomSubject} from './room/subject'
 
@@ -148,10 +148,11 @@ export class Matrix {
     roomList(): Observable<AugmentedRoomData[]> {
         return this.sync().pipe(
             map(it => it.rooms?.join ?? {}),
-            map(extractCoreRoomsInfo),
+            map(extractRoomsInfo),
             scan((acc, curr) => {
                 return {...acc, ...curr}
             }),
+            map(buildRoomHierarchy),
             shareReplay(1),
 
             catchError(error => {

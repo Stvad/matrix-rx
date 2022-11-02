@@ -2,24 +2,17 @@ import {EventsFilter, MessageEventType, RoomFilter, SyncFilter} from './types/Ap
 
 export const MESSAGE_COUNT_INC = 100
 
-// This generally should include all state events, as `state` and `timeline` are delivered
-// in non-overlapping fashion - `state` include everything before start of timeline
-const timelineEventsToSync: MessageEventType[] = [
-    'm.room.third_party_invite',
-    'm.room.redaction',
-    'm.room.message',
-    'm.room.member',
-    'm.room.name',
-    'm.room.avatar',
-    'm.room.canonical_alias',
-    'm.room.join_rules',
-    'm.room.power_levels',
-    'm.room.topic',
-    'm.room.encrypted',
-    'm.room.create',
+const customEventsToSync: MessageEventType[] = [
     'matrix-rx.autocomplete'
 ]
 
+const spaceEvents: MessageEventType[] = [
+    'm.space.child',
+    'm.space.parent',
+]
+
+// This generally should include all state events, as `state` and `timeline` are delivered
+// in non-overlapping fashion - `state` include everything before start of timeline
 const stateEventsToSync: MessageEventType[] = [
     'm.room.member',
     'm.room.name',
@@ -29,7 +22,16 @@ const stateEventsToSync: MessageEventType[] = [
     'm.room.power_levels',
     'm.room.topic',
     'm.room.create',
-    'matrix-rx.autocomplete'
+    'm.room.third_party_invite',
+    ...customEventsToSync,
+    ...spaceEvents
+]
+
+const timelineEventsToSync: MessageEventType[] = [
+    'm.room.redaction',
+    'm.room.message',
+    'm.room.encrypted',
+    ...stateEventsToSync
 ]
 
 export function getIncrementalFilter(roomId?: string) {
@@ -84,10 +86,7 @@ export function getInitialFilter(roomId?: string) {
         },
         state: {
             lazy_load_members: true,
-            types: [
-                'm.room.third_party_invite',
-                ...stateEventsToSync,
-            ],
+            types: stateEventsToSync,
         },
         ephemeral: {
             limit: 0,

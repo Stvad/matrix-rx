@@ -7,8 +7,10 @@ export type LoginParamType = 'm.login.password' | 'm.login.token';
 export type RegisterStageType = 'm.login.recaptcha' | 'm.login.terms' | 'm.login.dummy' | 'm.login.email.identity';
 export type StateEventType = 'm.room.avatar' | 'm.room.name' |
 	'matrix-rx.autocomplete'; // todo non-spec
+export type SpaceRelationType = 'm.space.child' | 'm.space.parent';
 export type MessageEventType =
 	| StateEventType
+	| SpaceRelationType
 	| 'm.room.third_party_invite'
 	| 'm.room.redaction'
 	| 'm.room.message'

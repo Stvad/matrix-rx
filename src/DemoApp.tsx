@@ -1,11 +1,11 @@
-import {RoomList} from './components'
+import {MainChatWindow} from './components'
 import {Login} from './components/login'
 
 function DemoApp() {
     return (
         <div className="App">
             <Login>
-                <RoomList/>
+                <MainChatWindow/>
             </Login>
         </div>
     )

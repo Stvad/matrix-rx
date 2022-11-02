@@ -7,7 +7,29 @@ import {RoomSubject} from '../matrix/room/subject'
 import {useLocalStorageState} from '../core/react'
 import {Event} from './event'
 
-export function RoomList() {
+function RoomList({rooms, setRoomId}: { rooms: AugmentedRoomData[], setRoomId: (roomId: string) => void }) {
+    return <div
+        css={{
+            display: 'flex',
+            flexDirection: 'column',
+            marginBottom: '1em',
+        }}
+    >
+        {rooms?.map(r =>
+            <button
+                key={r.id}
+                onClick={(e) => {
+                    e.stopPropagation()
+                    setRoomId(r.id)
+                }}
+            >
+                {r?.name}
+                {r?.children?.length && <RoomList rooms={r.children} setRoomId={setRoomId}/>}
+            </button>)}
+    </div>
+}
+
+export function MainChatWindow() {
     const [rooms, setRooms] = useState<AugmentedRoomData[]>([])
     const client = useMatrixClient()
     useWhileMounted(() => client.roomList().subscribe(it => setRooms(it)), [client])
@@ -15,17 +37,13 @@ export function RoomList() {
     const [roomId, setRoomId] = useLocalStorageState<string>('matrix.lastRoomId', undefined)
 
     return (
-        <div>
-            <div>
-                {Object.values(rooms).map(r =>
-                    <button
-                        key={r.id}
-                        onClick={() => setRoomId(r.id)}
-                    >
-                        {r?.name}
-                    </button>,
-                )}
-            </div>
+        <div
+            css={{
+                display: 'flex',
+                width: '100%',
+            }}
+        >
+            <RoomList rooms={rooms} setRoomId={setRoomId} />
             {roomId ? <Room roomId={roomId}/> : <div>No room selected</div>}
         </div>
     )
@@ -55,7 +73,12 @@ export function Room({roomId}: RoomProps) {
         return <div>Loading...</div>
     }
 
-    return <div>
+    return <div
+        className={'room'}
+        css={{
+            width: '100%',
+        }}
+    >
         <div
             className="roomName"
             css={{

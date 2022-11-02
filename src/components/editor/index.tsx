@@ -59,7 +59,9 @@ interface EditorProps {
 export function Editor({onChange, emitEditor, additionalPlugins}: EditorProps) {
     return (
         <LexicalComposer initialConfig={editorConfig}>
-            <div className="editor-container">
+            <div
+                className="editor-container"
+            >
                 <ToolbarPlugin/>
                 <div className="editor-inner">
                     <RichTextPlugin

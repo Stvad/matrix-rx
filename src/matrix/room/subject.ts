@@ -12,6 +12,9 @@ export interface ControlEvent {
     [key: string]: any
 }
 
+/**
+ * Can potentially be BehaviorSubject if I do any kind of local caching
+ */
 export class RoomSubject extends ReplaySubject<AugmentedRoomData> {
     /**
      * kind of unhappy with having to have this, is there a better way?

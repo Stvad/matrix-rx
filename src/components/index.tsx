@@ -1,19 +1,18 @@
-import {useObservableValue, useWhileMounted} from '../core/observable'
+import {useWhileMounted} from '../core/observable'
 import {useEffect, useState} from 'react'
 import {useMatrixClient} from './context'
-import {Observable} from 'rxjs'
-import {MatrixEvent} from '../matrix/types/Api'
-import {MessageEditor} from './message-editor'
+import {MessageEditor} from './editor/message-editor'
 import {AugmentedRoomData} from '../matrix/room'
-import {RoomSubject} from '../matrix/room-subject'
+import {RoomSubject} from '../matrix/room/subject'
+import {useLocalStorageState} from '../core/react'
+import {Event} from './event'
 
 export function RoomList() {
     const [rooms, setRooms] = useState<AugmentedRoomData[]>([])
     const client = useMatrixClient()
     useWhileMounted(() => client.roomList().subscribe(it => setRooms(it)), [client])
 
-    // todo use localstorage to save last room
-    const [roomId, setRoomId] = useState<string>()
+    const [roomId, setRoomId] = useLocalStorageState<string>('matrix.lastRoomId', undefined)
 
     return (
         <div>
@@ -57,7 +56,17 @@ export function Room({roomId}: RoomProps) {
     }
 
     return <div>
-        <div className="roomName">{room?.name}</div>
+        <div
+            className="roomName"
+            css={{
+                fontSize: '1.5em',
+                fontWeight: 'bold',
+                textAlign: 'center',
+            }}
+        >
+            {room?.name}
+        </div>
+
         <button onClick={() => {
             room$?.loadOlderEvents(room?.backPaginationToken)
         }}>^
@@ -74,43 +83,3 @@ export function Room({roomId}: RoomProps) {
     </div>
 }
 
-interface EventProps {
-    observable: Observable<MatrixEvent>
-}
-
-export function Event({observable}: EventProps) {
-    const event = useObservableValue(observable)
-
-    return (
-        <div>
-            <div
-                className="messageBody"
-                css={{
-                    display: 'flex',
-                }}
-            >
-                <div
-                    className="messageSender"
-                    css={{
-                        fontWeight: 'bold',
-                    }}
-                >{event?.sender}</div>
-                :
-                <div
-                    className="messageContent"
-                    css={{
-                        marginLeft: '0.5em',
-                    }}
-                >{event?.content.body}</div>
-            </div>
-            <div
-                className={'messageChildren'}
-                css={{
-                    marginLeft: '1em',
-                }}
-            >
-                {event?.children?.map(it => <Event key={it.id} observable={it.observable}/>)}
-            </div>
-        </div>
-    )
-}

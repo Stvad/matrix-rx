@@ -1,13 +1,8 @@
 import {useLexicalComposerContext} from '@lexical/react/LexicalComposerContext'
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react'
 import {
-    CAN_REDO_COMMAND,
-    CAN_UNDO_COMMAND,
-    REDO_COMMAND,
-    UNDO_COMMAND,
     SELECTION_CHANGE_COMMAND,
     FORMAT_TEXT_COMMAND,
-    FORMAT_ELEMENT_COMMAND,
     $getSelection,
     $isRangeSelection,
     $createParagraphNode,
@@ -418,8 +413,6 @@ function BlockOptionsDropdownList({
 export default function ToolbarPlugin() {
     const [editor] = useLexicalComposerContext()
     const toolbarRef = useRef(null)
-    const [canUndo, setCanUndo] = useState(false)
-    const [canRedo, setCanRedo] = useState(false)
     const [blockType, setBlockType] = useState('paragraph')
     const [selectedElementKey, setSelectedElementKey] = useState(null)
     const [showBlockOptionsDropDown, setShowBlockOptionsDropDown] = useState(
@@ -494,22 +487,6 @@ export default function ToolbarPlugin() {
                 },
                 LowPriority,
             ),
-            editor.registerCommand(
-                CAN_UNDO_COMMAND,
-                (payload) => {
-                    setCanUndo(payload)
-                    return false
-                },
-                LowPriority,
-            ),
-            editor.registerCommand(
-                CAN_REDO_COMMAND,
-                (payload) => {
-                    setCanRedo(payload)
-                    return false
-                },
-                LowPriority,
-            ),
         )
     }, [editor, updateToolbar])
 
@@ -538,53 +515,6 @@ export default function ToolbarPlugin() {
 
     return (
         <div className="toolbar" ref={toolbarRef}>
-            <button
-                disabled={!canUndo}
-                onClick={() => {
-                    editor.dispatchCommand(UNDO_COMMAND)
-                }}
-                className="toolbar-item spaced"
-                aria-label="Undo"
-            >
-                <i className="format undo"/>
-            </button>
-            <button
-                disabled={!canRedo}
-                onClick={() => {
-                    editor.dispatchCommand(REDO_COMMAND)
-                }}
-                className="toolbar-item"
-                aria-label="Redo"
-            >
-                <i className="format redo"/>
-            </button>
-            <Divider/>
-            {supportedBlockTypes.has(blockType) && (
-                <>
-                    <button
-                        className="toolbar-item block-controls"
-                        onClick={() =>
-                            setShowBlockOptionsDropDown(!showBlockOptionsDropDown)
-                        }
-                        aria-label="Formatting Options"
-                    >
-                        <span className={'icon block-type ' + blockType}/>
-                        <span className="text">{blockTypeToBlockName[blockType]}</span>
-                        <i className="chevron-down"/>
-                    </button>
-                    {showBlockOptionsDropDown &&
-                        createPortal(
-                            <BlockOptionsDropdownList
-                                editor={editor}
-                                blockType={blockType}
-                                toolbarRef={toolbarRef}
-                                setShowBlockOptionsDropDown={setShowBlockOptionsDropDown}
-                            />,
-                            document.body,
-                        )}
-                    <Divider/>
-                </>
-            )}
             {blockType === 'code' ? (
                 <>
                     <Select
@@ -594,6 +524,7 @@ export default function ToolbarPlugin() {
                         value={codeLanguage}
                     />
                     <i className="chevron-down inside"/>
+                    <Divider/>
                 </>
             ) : (
                 <>
@@ -653,9 +584,36 @@ export default function ToolbarPlugin() {
                     </button>
                     {isLink &&
                         createPortal(<FloatingLinkEditor editor={editor}/>, document.body)}
+                    <Divider/>
                     {' '}
                 </>
             )}
+            {supportedBlockTypes.has(blockType) && (
+                <>
+                    <button
+                        className="toolbar-item block-controls"
+                        onClick={() =>
+                            setShowBlockOptionsDropDown(!showBlockOptionsDropDown)
+                        }
+                        aria-label="Formatting Options"
+                    >
+                        <span className={'icon block-type ' + blockType}/>
+                        <span className="text">{blockTypeToBlockName[blockType]}</span>
+                        <i className="chevron-down"/>
+                    </button>
+                    {showBlockOptionsDropDown &&
+                        createPortal(
+                            <BlockOptionsDropdownList
+                                editor={editor}
+                                blockType={blockType}
+                                toolbarRef={toolbarRef}
+                                setShowBlockOptionsDropDown={setShowBlockOptionsDropDown}
+                            />,
+                            document.body,
+                        )}
+                </>
+            )}
+
         </div>
     )
 }

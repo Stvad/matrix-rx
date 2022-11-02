@@ -4,7 +4,7 @@ export const MESSAGE_COUNT_INC = 100
 
 // This generally should include all state events, as `state` and `timeline` are delivered
 // in non-overlapping fashion - `state` include everything before start of timeline
-const timelineEventTypesToLoad: MessageEventType[] = [
+const timelineEventsToSync: MessageEventType[] = [
     'm.room.third_party_invite',
     'm.room.redaction',
     'm.room.message',
@@ -16,6 +16,18 @@ const timelineEventTypesToLoad: MessageEventType[] = [
     'm.room.power_levels',
     'm.room.topic',
     'm.room.encrypted',
+    'm.room.create',
+    'matrix-rx.autocomplete'
+]
+
+const stateEventsToSync: MessageEventType[] = [
+    'm.room.member',
+    'm.room.name',
+    'm.room.avatar',
+    'm.room.canonical_alias',
+    'm.room.join_rules',
+    'm.room.power_levels',
+    'm.room.topic',
     'm.room.create',
     'matrix-rx.autocomplete'
 ]
@@ -32,21 +44,11 @@ export function getIncrementalFilter(roomId?: string) {
         timeline: {
             limit: MESSAGE_COUNT_INC,
             lazy_load_members: true,
-            types: timelineEventTypesToLoad,
+            types: timelineEventsToSync,
         },
         state: {
             lazy_load_members: true,
-            types: [
-                'm.room.member',
-                'm.room.name',
-                'm.room.avatar',
-                'm.room.canonical_alias',
-                'm.room.join_rules',
-                'm.room.power_levels',
-                'm.room.topic',
-                'm.room.create',
-                'matrix-rx.autocomplete'
-            ],
+            types: stateEventsToSync,
         },
         ephemeral: {
             lazy_load_members: true,
@@ -78,21 +80,13 @@ export function getInitialFilter(roomId?: string) {
         rooms: roomId ? [roomId] : undefined,
         timeline: {
             limit: roomId ? 15 : 0,
-            types: roomId ? timelineEventTypesToLoad : [],
+            types: roomId ? timelineEventsToSync : [],
         },
         state: {
             lazy_load_members: true,
             types: [
                 'm.room.third_party_invite',
-                'm.room.member',
-                'm.room.name',
-                'm.room.avatar',
-                'm.room.canonical_alias',
-                'm.room.join_rules',
-                'm.room.power_levels',
-                'm.room.topic',
-                'm.room.create',
-                'matrix-rx.autocomplete'
+                ...stateEventsToSync,
             ],
         },
         ephemeral: {

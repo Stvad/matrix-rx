@@ -1,6 +1,6 @@
-import {useMatrixClient} from './context'
-import {useState} from 'react'
-import {Editor} from './editor'
+import {useMatrixClient} from '../context'
+import {useCallback, useState} from 'react'
+import {Editor} from './index'
 import {CLEAR_EDITOR_COMMAND} from 'lexical'
 
 import {$generateHtmlFromNodes} from '@lexical/html'
@@ -9,8 +9,10 @@ import {
     TRANSFORMERS,
 } from '@lexical/markdown'
 import {EditorState, LexicalEditor} from 'lexical'
-import {MentionsPlugin} from './editor/plugins/mentions'
-import {AugmentedRoomData} from '../matrix/room'
+import {MentionsPlugin} from './plugins/mentions'
+import {AugmentedRoomData} from '../../matrix/room'
+import {debounce} from '../../core/utils'
+import {KeyboardShortcutPlugin} from './plugins/keyboard-shortcuts'
 
 const textMessage = (text: string) => ({
     msgtype: 'm.text',
@@ -35,27 +37,31 @@ export function MessageEditor({room}: MessageEditorProps) {
     const [editor, setEditor] = useState<LexicalEditor | null>(null)
 
     const sendMessage = () => {
-        client.sendMessage(room.id, htmlMessage(html, markdown))
+        void client.sendMessage(room.id, htmlMessage(html, markdown))
         editor?.dispatchCommand(CLEAR_EDITOR_COMMAND, undefined)
     }
+
+    const onChange = useCallback(debounce((editorState: EditorState, editor: LexicalEditor) => {
+            editorState.read(() => {
+                setHtml($generateHtmlFromNodes(editor))
+                setMarkdown($convertToMarkdownString(TRANSFORMERS))
+            })
+        }, 100)
+        , [])
+
     return (
         <div
-            className="messageEntry"
+            className="message-editor"
             css={{
                 display: 'flex',
             }}
         >
             <Editor
                 emitEditor={setEditor}
-                // todo debounce
-                onChange={(editorState: EditorState, editor: LexicalEditor) => {
-                    editorState.read(() => {
-                        setHtml($generateHtmlFromNodes(editor))
-                        setMarkdown($convertToMarkdownString(TRANSFORMERS))
-                    })
-                }}
+                onChange={onChange}
                 additionalPlugins={[
-                    <MentionsPlugin suggestions={room.autocompleteSuggestions}/>
+                    <MentionsPlugin suggestions={room.autocompleteSuggestions}/>,
+                    <KeyboardShortcutPlugin onSendMessage={sendMessage}/>,
                 ]}
             />
             <button onClick={sendMessage}>Send

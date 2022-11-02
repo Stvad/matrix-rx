@@ -9,3 +9,5 @@ export * from './components/context'
 export * from './components/message-editor'
 
 export {useWhileMounted} from './core/observable'
+export {Event} from './components/event'
+export {EventProps} from './components/event'

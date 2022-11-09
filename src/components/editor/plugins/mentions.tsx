@@ -22,6 +22,7 @@ import * as React from 'react'
 import * as ReactDOM from 'react-dom'
 
 import {$createMentionNode} from '../nodes/mention'
+import {AutocompleteSuggestion} from '../../../matrix/extensions/autocomplete'
 
 const PUNCTUATION =
     '\\.,\\+\\*\\?\\$\\@\\|#{}\\(\\)\\^\\-\\[\\]\\\\/!%\'"~=<>_:;'
@@ -240,13 +241,17 @@ function MentionsTypeaheadMenuItem({
     )
 }
 
-export function MentionsPlugin({suggestions}): JSX.Element | null {
+interface MentionsPluginProps {
+    suggestions: AutocompleteSuggestion[]
+}
+
+export function MentionsPlugin({suggestions}: MentionsPluginProps): JSX.Element | null {
     const [editor] = useLexicalComposerContext()
 
     const [queryString, setQueryString] = useState<string | null>(null)
 
     const results = suggestions.filter(mention =>
-        mention.toLowerCase().includes(queryString?.toLowerCase()))
+        mention.text?.toLowerCase().includes(queryString?.toLowerCase()))
 
     const checkForSlashTriggerMatch = useBasicTypeaheadTriggerMatch('/', {
         minLength: 0,
@@ -257,7 +262,7 @@ export function MentionsPlugin({suggestions}): JSX.Element | null {
             results
                 .map(
                     (result) =>
-                        new MentionTypeaheadOption(result, <i className="icon user"/>),
+                        new MentionTypeaheadOption(result.text, <i className="icon user"/>),
                 )
                 .slice(0, SUGGESTION_LIST_LENGTH_LIMIT),
         [results],

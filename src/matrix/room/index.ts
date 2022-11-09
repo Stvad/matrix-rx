@@ -1,5 +1,5 @@
 import {MatrixEvent, RoomData, RoomNameEvent} from '../types/Api'
-import {AutocompleteConfigurationEvent} from '../extensions/autocomplete'
+import {AutocompleteConfigurationEvent, AutocompleteSuggestion} from '../extensions/autocomplete'
 import {ObservedEvent} from '../event'
 
 export interface AugmentedRoomData extends RoomData {
@@ -7,7 +7,7 @@ export interface AugmentedRoomData extends RoomData {
     events: MatrixEvent[]
     name: string
     backPaginationToken: string
-    autocompleteSuggestions: string[]
+    autocompleteSuggestions: AutocompleteSuggestion[]
     messages: ObservedEvent[]
     children: AugmentedRoomData[]
 }
@@ -26,7 +26,7 @@ function getAutocompleteSuggestions(events: MatrixEvent[]) {
     const configEvent = events.findLast(
         (e: MatrixEvent) => e.type === 'matrix-rx.autocomplete',
     ) as AutocompleteConfigurationEvent | undefined
-    return configEvent?.content.pageNames ?? []
+    return configEvent?.content.pages ?? []
 }
 
 const getChildRelationEvents = (loadedRoomEvents: MatrixEvent[]) =>
@@ -60,7 +60,6 @@ export const buildRoomHierarchy = (rooms: { [id: string]: AugmentedRoomData }): 
         const childrenEvents = getChildRelationEvents(room.events)
         // todo extract and handle order
         const children = childrenEvents.map(it => rooms[it.state_key!]).filter(Boolean)
-        console.log({childrenEvents, children})
 
         children.forEach(it => hasParent.add(it.id))
 

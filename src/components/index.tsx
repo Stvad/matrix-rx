@@ -43,7 +43,7 @@ export function MainChatWindow() {
                 width: '100%',
             }}
         >
-            <RoomList rooms={rooms} setRoomId={setRoomId} />
+            <RoomList rooms={rooms} setRoomId={setRoomId}/>
             {roomId ? <Room roomId={roomId}/> : <div>No room selected</div>}
         </div>
     )

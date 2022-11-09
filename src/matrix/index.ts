@@ -57,6 +57,11 @@ interface LoadHistoricEventsParams {
     limit?: string
 }
 
+function mergeNestedObjects<B, C>(acc: C | B, curr: B) {
+    const mergedKeys = new Set([...Object.keys(curr), ...Object.keys(acc)])
+    return Object.fromEntries([...mergedKeys].map(it => [it, {...acc[it], ...curr[it]}]))
+}
+
 export class Matrix {
     static async fromUserAndPassword(params: LoginParams): Promise<Matrix> {
         return Matrix.fromCredentials(await login(params))
@@ -149,9 +154,7 @@ export class Matrix {
         return this.sync().pipe(
             map(it => it.rooms?.join ?? {}),
             map(extractRoomsInfo),
-            scan((acc, curr) => {
-                return {...acc, ...curr}
-            }),
+            scan(mergeNestedObjects),
             map(buildRoomHierarchy),
             shareReplay(1),
 

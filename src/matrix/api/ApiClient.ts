@@ -10,7 +10,7 @@ import {
 	EmailTokenResponse_,
 	LoginResponse_,
 	AuthParam_,
-	PusherGetResponse_,
+	PusherGetResponse,
 	NewRoomOptions_,
 	LoginParamType,
 	RegisterStageType,
@@ -19,8 +19,8 @@ import {
 	StateEventContent,
 	StateEventType,
 	MessageEventContent,
-	PusherParam_,
-	PushRulesGetResponse_,
+	PusherParam,
+	PushRulesGetResponse,
 	DirectorySearch_,
 	MatrixEvent,
 } from '../types/Api';
@@ -192,7 +192,7 @@ export class ApiClient {
 
 	// pushers
 
-	public getPushers(): Promise<PusherGetResponse_> {
+	public getPushers(): Promise<PusherGetResponse> {
 		const restClient = new RestClient(this.credentials.accessToken, this.credentials.homeServer, PREFIX_REST);
 
 		return restClient.getPushers();
@@ -201,7 +201,7 @@ export class ApiClient {
 	public setEmailPusher(wantPusher: boolean, emailAddress: string): Promise<void> {
 		const restClient = new RestClient(this.credentials.accessToken, this.credentials.homeServer, PREFIX_REST);
 
-		const pusher: PusherParam_ = {
+		const pusher: PusherParam = {
 			append: false,
 			app_display_name: 'Email Notifications',
 			app_id: 'm.email',
@@ -221,7 +221,7 @@ export class ApiClient {
 		restClient.muteRoomNotifications(roomId, muted).catch(_error => null);
 	}
 
-	public getPushRules(): Promise<PushRulesGetResponse_> {
+	public getPushRules(): Promise<PushRulesGetResponse> {
 		const restClient = new RestClient(this.credentials.accessToken, this.credentials.homeServer, PREFIX_REST);
 
 		return restClient.getPushRules();

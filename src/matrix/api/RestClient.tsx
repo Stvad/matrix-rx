@@ -3,10 +3,10 @@ import {
 	PreviewUrl_,
 	LoginParam_,
 	LoginResponse_,
-	PusherGetResponse_,
+	PusherGetResponse,
 	EmailTokenResponse_,
 	AuthParam_,
-	PusherParam_,
+	PusherParam,
 	NewRoomOptions_,
 	GetPublicRoomsResponse_,
 	MatrixEvent,
@@ -17,9 +17,9 @@ import {
 	MessageEventContent,
 	SyncFilter,
 	SyncResponse,
-	PushRulesGetResponse_,
-	DirectorySearch_,
-} from '../types/Api';
+	PushRulesGetResponse,
+	DirectorySearch_, PushRuleKind, PushRuleScope,
+} from '../types/Api'
 
 export default class RestClient extends GenericRestClient {
 	constructor(private accessToken: string, homeServer: string, prefix: string) {
@@ -85,16 +85,24 @@ export default class RestClient extends GenericRestClient {
 		);
 	}
 
-	public getPushers(): Promise<PusherGetResponse_> {
-		return this.performApiGet<PusherGetResponse_>('pushers');
+	public getPushers(): Promise<PusherGetResponse> {
+		return this.performApiGet<PusherGetResponse>('pushers');
 	}
 
-	public setPusher(pusher: PusherParam_): Promise<void> {
+	public setPusher(pusher: PusherParam): Promise<void> {
 		return this.performApiPost<void>('pushers/set', pusher);
 	}
 
-	public getPushRules(): Promise<PushRulesGetResponse_> {
-		return this.performApiGet<PushRulesGetResponse_>('pushrules/global/');
+	public getPushRules(): Promise<PushRulesGetResponse> {
+		return this.performApiGet<PushRulesGetResponse>('pushrules/global/')
+	}
+
+	public putPushRule(scope: PushRuleScope, kind: PushRuleKind, ruleId: string, body: any): Promise<void> {
+		return this.performApiPut<void>(`pushrules/${scope}/${kind}/${ruleId}`, body)
+	}
+
+	public deletePushRule(scope: PushRuleScope, kind: PushRuleKind, ruleId: string): Promise<void> {
+		return this.performApiDelete<void>(`pushrules/${scope}/${kind}/${ruleId}`)
 	}
 
 	public muteRoomNotifications(roomId: string, muted: boolean): Promise<void> {

@@ -148,7 +148,7 @@ export interface MessageEventContent {
 	url_preview?: LinkPreview_; // custom field
 }
 
-export interface PusherParam_ {
+export interface PusherParam {
 	append?: boolean;
 	app_display_name?: string;
 	app_id: string;
@@ -164,14 +164,18 @@ export interface PusherParam_ {
 	pushkey: string;
 }
 
-export interface PusherGetResponse_ {
+export interface PusherGetResponse {
 	pushers: {
 		app_id: string;
 		pushkey: string;
 	}[];
 }
 
-export interface PushRulesGetResponse_ {
+export type PushRuleKind = 'override' | 'underride' | 'sender' | 'room' | 'content';
+export type PushRuleAction = 'notify' | 'dont_notify' | 'coalesce';
+export type PushRuleScope = 'global' | 'device';
+
+export interface PushRulesGetResponse {
 	content: {
 		actions: string[];
 		default: boolean;

@@ -14,7 +14,7 @@ import {Omnibus} from 'omnibus-rxjs'
 import {getIncrementalFilter, getInitialFilter} from './sync-filter'
 import RestClient from './api/RestClient'
 import {Credentials} from './types/Credentials'
-import {AugmentedRoomData, buildRoomHierarchy, extractRoomsInfo} from './room'
+import {AugmentedRoomData, buildRoomHierarchy, extractRoomsInfo, mergeNestedRooms} from './room'
 import {isThreadChildOf, ObservedEvent} from './event'
 import {RoomSubject} from './room/subject'
 
@@ -55,11 +55,6 @@ interface LoadHistoricEventsParams {
     to?: string
     direction?: 'b' | 'f'
     limit?: string
-}
-
-function mergeNestedObjects<B, C>(acc: C | B, curr: B) {
-    const mergedKeys = new Set([...Object.keys(curr), ...Object.keys(acc)])
-    return Object.fromEntries([...mergedKeys].map(it => [it, {...acc[it], ...curr[it]}]))
 }
 
 export class Matrix {
@@ -154,7 +149,7 @@ export class Matrix {
         return this.sync().pipe(
             map(it => it.rooms?.join ?? {}),
             map(extractRoomsInfo),
-            scan(mergeNestedObjects),
+            scan(mergeNestedRooms),
             map(buildRoomHierarchy),
             shareReplay(1),
 

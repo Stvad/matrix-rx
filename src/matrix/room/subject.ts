@@ -1,5 +1,5 @@
 import {catchError, filter, map, merge, mergeMap, Observable, of, ReplaySubject, scan, tap} from 'rxjs'
-import {AugmentedRoomData, createAugmentedRoom} from './index'
+import {AugmentedRoomData, createAugmentedRoom, mergeRoom} from './index'
 import {Omnibus} from 'omnibus-rxjs'
 import {Matrix} from '../index'
 import {Subscription} from 'rxjs/internal/Subscription'
@@ -51,6 +51,7 @@ export class RoomSubject extends ReplaySubject<AugmentedRoomData> {
     }
 
 
+    // todo did pagination start taking longer?
     public loadOlderEvents(from: string, to?: string) {
         // todo meaningful only with active subscription, enforce?
 
@@ -107,19 +108,12 @@ export class RoomSubject extends ReplaySubject<AugmentedRoomData> {
             }),
             scan((acc, curr = {events: []}) => {
                 // Don't do new data synthesis in scan, bc then new data is only available on the second+ batch of events
-                return {
-                    ...acc,
-                    ...curr,
-                    // todo performance wise - should be able to just do merge part of merge sort instead of full sort
-                    // todo dedup, though maybe even at an earlier stage (observable creation)
-                    events: [...acc.events, ...curr.events].sort((a, b) => a.timestamp - b.timestamp),
-                }
+                return mergeRoom(acc, curr)
             }),
             map(it => ({
                 ...it,
                 messages: it.events.filter(it => it.type === 'm.room.message'),
             })),
-            // shareReplay(1),
 
             catchError(error => {
                 console.log('error: ', error)

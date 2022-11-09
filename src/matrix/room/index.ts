@@ -18,7 +18,7 @@ function getRoomName(events: MatrixEvent[]) {
 
     // @ts-ignore https://github.com/microsoft/TypeScript/issues/48829
     const nameEvent = events.findLast(e => e.type === 'm.room.name') as RoomNameEvent | undefined
-    return nameEvent?.content.name ?? ''
+    return nameEvent?.content.name
 }
 
 function getAutocompleteSuggestions(events: MatrixEvent[]) {
@@ -44,6 +44,9 @@ export function createAugmentedRoom(id: string, room: RoomData): Partial<Augment
          * the story is more complicated, can have windows of unloaded messages, etc
          */
         backPaginationToken: room.timeline.prev_batch,
+        /**
+         * todo: have the "extensions" be a list of functions that can be applied to the room
+         */
         autocompleteSuggestions: getAutocompleteSuggestions(loadedRoomEvents),
     }
 }
@@ -69,3 +72,36 @@ export const buildRoomHierarchy = (rooms: { [id: string]: AugmentedRoomData }): 
         }
     }).filter(it => !hasParent.has(it.id))
 }
+
+export function mergeNestedRooms(acc: { [id: string]: AugmentedRoomData }, curr: { [id: string]: Partial<AugmentedRoomData> }) {
+    const mergedKeys = new Set([...Object.keys(curr), ...Object.keys(acc)])
+    return Object.fromEntries([...mergedKeys].map(it =>
+        [it, mergeRoom(acc[it] || {}, curr[it] || {})]))
+}
+
+export const mergeRoom = (aggregate: AugmentedRoomData, newData: Partial<AugmentedRoomData>) => {
+    // todo performance wise - should be able to just do merge part of merge sort instead of full sort
+    // todo dedup, though maybe even at an earlier stage (observable creation)
+    const events = [...aggregate.events, ...(newData?.events ?? [])].sort((a, b) => a.timestamp - b.timestamp)
+
+    const nonEmptyFields = Object.keys(newData).filter(it => !isEmpty(newData[it]))
+    const newFields = Object.fromEntries(nonEmptyFields.map(it => [it, newData[it]]))
+
+    /**
+     * todo
+     * This still has more issues.
+     * The nested event lists are not merged & overridden with empty arrays
+     * I don't really care for state & timeline as they are lifted into `events`
+     * Account_data is tbd
+     */
+
+    return {
+        ...aggregate,
+        ...newFields,
+        events,
+    }
+}
+
+const isEmpty = (obj: any) => !obj ||
+    obj instanceof Array && obj.length === 0 ||
+    Object.keys(obj).length === 0

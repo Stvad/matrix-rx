@@ -2,11 +2,16 @@ import {MatrixEvent, RoomData, RoomNameEvent} from '../types/Api'
 import {AutocompleteConfigurationEvent, AutocompleteSuggestion} from '../extensions/autocomplete'
 import {ObservedEvent} from '../event'
 
+interface TimelineGap {
+    token: string,
+    timestamp: number,
+}
+
 export interface AugmentedRoomData extends RoomData {
     id: string
     events: MatrixEvent[]
     name: string
-    backPaginationToken: string
+    gaps: { back?: TimelineGap }
     autocompleteSuggestions: AutocompleteSuggestion[]
     messages: ObservedEvent[]
     children: AugmentedRoomData[]
@@ -42,8 +47,14 @@ export function createAugmentedRoom(id: string, room: RoomData): Partial<Augment
         name: getRoomName(loadedRoomEvents),
         /** todo
          * the story is more complicated, can have windows of unloaded messages, etc
+         *
          */
-        backPaginationToken: room.timeline.prev_batch,
+        gaps: {
+            back: room.timeline.prev_batch && room.timeline.events[0]?.origin_server_ts && {
+                token: room.timeline.prev_batch,
+                timestamp: room.timeline.events[0]?.origin_server_ts,
+            } || undefined,
+        },
         /**
          * todo: have the "extensions" be a list of functions that can be applied to the room
          */
@@ -99,7 +110,20 @@ export const mergeRoom = (aggregate: AugmentedRoomData, newData: Partial<Augment
         ...aggregate,
         ...newFields,
         events,
+        gaps: {
+            /**
+             * We want to have the token associated with the oldest message (retrieved on first sync or on back pagination)
+             */
+            back: mergeGapBack(aggregate.gaps.back, newData?.gaps?.back)
+        }
     }
+}
+
+const mergeGapBack = (aggregate: TimelineGap, newData: TimelineGap | undefined) => {
+    if (newData && newData.timestamp < aggregate.timestamp) {
+        return newData
+    }
+    return aggregate
 }
 
 const isEmpty = (obj: any) => !obj ||

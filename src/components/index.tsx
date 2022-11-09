@@ -15,7 +15,7 @@ function RoomList({rooms, setRoomId}: { rooms: AugmentedRoomData[], setRoomId: (
             marginBottom: '1em',
         }}
     >
-        {rooms?.map(r =>
+        {rooms && rooms.map(r =>
             <button
                 key={r.id}
                 onClick={(e) => {
@@ -91,7 +91,7 @@ export function Room({roomId}: RoomProps) {
         </div>
 
         <button onClick={() => {
-            room$?.loadOlderEvents(room?.backPaginationToken)
+            room$?.loadOlderEvents(room?.gaps.back.token)
         }}>^
         </button>
         <div

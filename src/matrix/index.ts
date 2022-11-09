@@ -121,7 +121,7 @@ export class Matrix {
             direction = 'b',
             limit = '100',
         }: LoadHistoricEventsParams,
-    ): Observable<{ events: MatrixEvent[] }> {
+    ): Observable<Partial<AugmentedRoomData>> {
         const params = new URLSearchParams({
             from: from,
             dir: direction,
@@ -137,7 +137,15 @@ export class Matrix {
         return ajax.getJSON<RoomMessagesResponse>(`${this.serverUrl}${PREFIX_REST}rooms/${roomId}/messages?` + params.toString())
             .pipe(
                 tap(it => console.log('scroll-response', it)),
-                map(it => ({events: it.chunk, backPaginationToken: it.end})),
+                map(it => ({
+                    events: it.chunk,
+                    gaps: {
+                        back: {
+                            token: it.end,
+                            timestamp: it.chunk[0].origin_server_ts,
+                        }
+                    },
+                })),
             )
     }
 

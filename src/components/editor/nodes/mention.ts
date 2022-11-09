@@ -1,122 +1,91 @@
-/**
- * Copyright (c) Meta Platforms, Inc. and affiliates.
- *
- * This source code is licensed under the MIT license found in the
- * LICENSE file in the root directory of this source tree.
- *
- */
-
 // from
 // https://raw.githubusercontent.com/facebook/lexical/89a4593cc0fd213f1a5655f464461a4d2d43c294/packages/lexical-playground/src/nodes/MentionNode.ts
 
 import type {Spread} from 'lexical'
-
-import {
-    DOMConversionMap,
-    DOMConversionOutput,
-    DOMExportOutput,
-    EditorConfig,
-    LexicalNode,
-    NodeKey,
-    SerializedTextNode,
-    TextNode,
-} from 'lexical'
+import {$createTextNode, EditorConfig, LexicalNode, NodeKey} from 'lexical'
+import {LinkNode, SerializedLinkNode} from '@lexical/link'
 
 export type SerializedMentionNode = Spread<{
-    mentionName: string;
+    mention: MentionNodeProps;
     type: 'mention';
     version: 1;
 },
-    SerializedTextNode>;
-
-function convertMentionElement(
-    domNode: HTMLElement,
-): DOMConversionOutput | null {
-    const textContent = domNode.textContent
-
-    if (textContent !== null) {
-        const node = $createMentionNode(textContent)
-        return {
-            node,
-        }
-    }
-
-    return null
-}
+    SerializedLinkNode>;
 
 const mentionStyle = 'background-color: rgba(24, 119, 232, 0.2)'
 
-export class MentionNode extends TextNode {
-    __mention: string
+export interface MentionNodeProps {
+    id: string;
+    text: string;
+    url: string;
+    details?: string;
+}
+
+interface LinkAttributes {
+    target?: null | string;
+    rel?: null | string;
+}
+
+export class MentionNode extends LinkNode {
+    __mention: MentionNodeProps
 
     static override getType(): string {
         return 'mention'
     }
 
     static override clone(node: MentionNode): MentionNode {
-        return new MentionNode(node.__mention, node.__text, node.__key)
+        return new MentionNode(node.__mention, {rel: node.__rel, target: node.__target}, node.__key)
     }
 
     static override importJSON(serializedNode: SerializedMentionNode): MentionNode {
-        const node = $createMentionNode(serializedNode.mentionName)
-        node.setTextContent(serializedNode.text)
+        const node = $createMentionNode(serializedNode.mention, {
+            rel: serializedNode.rel,
+            target: serializedNode.target,
+        })
         node.setFormat(serializedNode.format)
-        node.setDetail(serializedNode.detail)
-        node.setMode(serializedNode.mode)
-        node.setStyle(serializedNode.style)
+        node.setIndent(serializedNode.indent)
+        node.setDirection(serializedNode.direction)
         return node
     }
 
-    constructor(mentionName: string, text?: string, key?: NodeKey) {
-        super(text ?? mentionName, key)
-        this.__mention = mentionName
+    constructor(
+        mention: MentionNodeProps,
+        attributes: LinkAttributes = {target: '_blank'},
+        key?: NodeKey,
+    ) {
+        super(mention.url, attributes, key)
+        this.__mention = mention
     }
 
-    override exportJSON(): SerializedMentionNode {
-        return {
-            ...super.exportJSON(),
-            mentionName: this.__mention,
-            type: 'mention',
-            version: 1,
-        }
-    }
+    // override exportJSON(): SerializedMentionNode {
+    //     return {
+    //         ...super.exportJSON(),
+    //         mention: this.__mention,
+    //         type: 'mention',
+    //         version: 1,
+    //     }
+    // }
 
-    override createDOM(config: EditorConfig): HTMLElement {
+    override createDOM(config: EditorConfig): HTMLAnchorElement {
         const dom = super.createDOM(config)
         dom.style.cssText = mentionStyle
         dom.className = 'mention'
+        dom.id = this.__mention.id
+        dom.title = this.__mention.details ?? ''
+
         return dom
     }
 
-    override exportDOM(): DOMExportOutput {
-        const element = document.createElement('span')
-        element.setAttribute('data-lexical-mention', 'true')
-        element.textContent = this.__text
-        return {element}
-    }
-
-    static override importDOM(): DOMConversionMap | null {
-        return {
-            span: (domNode: HTMLElement) => {
-                if (!domNode.hasAttribute('data-lexical-mention')) {
-                    return null
-                }
-                return {
-                    conversion: convertMentionElement,
-                    priority: 1,
-                }
-            },
-        }
-    }
-
-    override isTextEntity(): true {
-        return true
-    }
+    // static override importDOM(): DOMConversionMap | null {
+    //     // todo for editing messages
+    //     console.log('importDOM')
+    // }
 }
 
-export function $createMentionNode(mentionName: string): MentionNode {
-    const mentionNode = new MentionNode(mentionName)
-    mentionNode.setMode('segmented').toggleDirectionless()
+export function $createMentionNode(mention: MentionNodeProps, attributes?: LinkAttributes): MentionNode {
+    const mentionNode = new MentionNode(mention, attributes)
+    // doing this in the constructor causes an infinite recursion =\
+    mentionNode.append($createTextNode(mention.text))
     return mentionNode
 }
 

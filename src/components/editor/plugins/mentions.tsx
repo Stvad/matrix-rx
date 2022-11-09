@@ -17,11 +17,11 @@ import {
     useBasicTypeaheadTriggerMatch,
 } from '@lexical/react/LexicalTypeaheadMenuPlugin'
 import {TextNode} from 'lexical'
-import {useCallback, useEffect, useMemo, useState} from 'react'
 import * as React from 'react'
+import {useCallback, useMemo, useState} from 'react'
 import * as ReactDOM from 'react-dom'
 
-import {$createMentionNode} from '../nodes/mention'
+import {$createMentionNode, MentionNodeProps} from '../nodes/mention'
 import {AutocompleteSuggestion} from '../../../matrix/extensions/autocomplete'
 
 const PUNCTUATION =
@@ -32,10 +32,6 @@ const DocumentMentionsRegex = {
     NAME,
     PUNCTUATION,
 }
-
-const CapitalizedNameMentionsRegex = new RegExp(
-    '(^|[^#])((?:' + DocumentMentionsRegex.NAME + '{' + 1 + ',})$)',
-)
 
 const PUNC = DocumentMentionsRegex.PUNCTUATION
 
@@ -76,94 +72,12 @@ const ALIAS_LENGTH_LIMIT = 50
 
 // Regex used to match alias.
 const AtSignMentionsRegexAliasRegex = new RegExp(
-    '(^|\\s|\\()(' +
-    '[' +
-    TRIGGERS +
-    ']' +
-    '((?:' +
-    VALID_CHARS +
-    '){0,' +
-    ALIAS_LENGTH_LIMIT +
-    '})' +
-    ')$',
+    `(^|\\s|\\()([${TRIGGERS}]((?:${VALID_CHARS}){0,${ALIAS_LENGTH_LIMIT}}))$`,
 )
 
 // At most, 5 suggestions are shown in the popup.
-const SUGGESTION_LIST_LENGTH_LIMIT = 5
+const SUGGESTION_LIST_LENGTH_LIMIT = 7
 
-const mentionsCache = new Map()
-
-const dummyMentionsData = [
-    'Aayla Secura',
-    'Adi Gallia',
-    'Admiral Dodd Rancit',
-    'Admiral Firmus Piett',
-    'Admiral Gial Ackbar',
-    'Admiral Ozzel',
-    'Admiral Raddus',
-    'Admiral Terrinald Screed',
-]
-
-const dummyLookupService = {
-    search(string: string, callback: (results: Array<string>) => void): void {
-        setTimeout(() => {
-            const results = dummyMentionsData.filter((mention) =>
-                mention.toLowerCase().includes(string.toLowerCase()),
-            )
-            callback(results)
-        }, 500)
-    },
-}
-
-function useMentionLookupService(mentionString: string | null) {
-    const [results, setResults] = useState<Array<string>>([])
-
-    useEffect(() => {
-        const cachedResults = mentionsCache.get(mentionString)
-
-        if (mentionString == null) {
-            setResults([])
-            return
-        }
-
-        if (cachedResults === null) {
-            return
-        } else if (cachedResults !== undefined) {
-            setResults(cachedResults)
-            return
-        }
-
-        mentionsCache.set(mentionString, null)
-        dummyLookupService.search(mentionString, (newResults) => {
-            mentionsCache.set(mentionString, newResults)
-            setResults(newResults)
-        })
-    }, [mentionString])
-
-    return results
-}
-
-function checkForCapitalizedNameMentions(
-    text: string,
-    minMatchLength: number,
-): QueryMatch | null {
-    const match = CapitalizedNameMentionsRegex.exec(text)
-    if (match !== null) {
-        // The strategy ignores leading whitespace but we need to know it's
-        // length to add it to the leadOffset
-        const maybeLeadingWhitespace = match[1]
-
-        const matchingString = match[2]
-        if (matchingString != null && matchingString.length >= minMatchLength) {
-            return {
-                leadOffset: match.index + maybeLeadingWhitespace.length,
-                matchingString,
-                replaceableString: matchingString,
-            }
-        }
-    }
-    return null
-}
 
 function checkForAtSignMentions(
     text: string,
@@ -192,18 +106,16 @@ function checkForAtSignMentions(
 }
 
 function getPossibleQueryMatch(text: string): QueryMatch | null {
-    const match = checkForAtSignMentions(text, 1)
-    return match === null ? checkForCapitalizedNameMentions(text, 3) : match
+    return checkForAtSignMentions(text, 1)
 }
 
 class MentionTypeaheadOption extends TypeaheadOption {
-    name: string
-    picture: JSX.Element
+    constructor(public mention: MentionNodeProps) {
+        super(mention.id)
+    }
 
-    constructor(name: string, picture: JSX.Element) {
-        super(name)
-        this.name = name
-        this.picture = picture
+    get text(): string {
+        return this.mention.text
     }
 }
 
@@ -235,8 +147,7 @@ function MentionsTypeaheadMenuItem({
             id={'typeahead-item-' + index}
             onMouseEnter={onMouseEnter}
             onClick={onClick}>
-            {option.picture}
-            <span className="text">{option.name}</span>
+            <span className="text">{option.text}</span>
         </li>
     )
 }
@@ -262,7 +173,13 @@ export function MentionsPlugin({suggestions}: MentionsPluginProps): JSX.Element 
             results
                 .map(
                     (result) =>
-                        new MentionTypeaheadOption(result.text, <i className="icon user"/>),
+                        new MentionTypeaheadOption({
+                            id: result.id,
+                            text: result.text,
+                            details: result.summary,
+                            // todo hardcoded
+                            url: `https://roamresearch.com/#/app/tools/page/${result.id}`,
+                        }),
                 )
                 .slice(0, SUGGESTION_LIST_LENGTH_LIMIT),
         [results],
@@ -275,7 +192,7 @@ export function MentionsPlugin({suggestions}: MentionsPluginProps): JSX.Element 
             closeMenu: () => void,
         ) => {
             editor.update(() => {
-                const mentionNode = $createMentionNode(selectedOption.name)
+                const mentionNode = $createMentionNode(selectedOption.mention)
                 if (nodeToReplace) {
                     nodeToReplace.replace(mentionNode)
                 }

@@ -3,7 +3,7 @@ import {AugmentedRoomData, createAugmentedRoom, mergeRoom} from './index'
 import {Omnibus} from 'omnibus-rxjs'
 import {Matrix} from '../index'
 import {Subscription} from 'rxjs/internal/Subscription'
-import {getEventsWithRelationships, getRootEvents} from '../event'
+import {EventSubject, getEventsWithRelationships, getRootEvents} from '../event'
 import {MatrixEvent} from '../types/Api'
 
 export interface ControlEvent {
@@ -18,6 +18,7 @@ export interface ControlEvent {
 export class RoomSubject extends ReplaySubject<AugmentedRoomData> {
     /**
      * kind of unhappy with having to have this, is there a better way?
+     * rn it's used to dedup event observables creation for the room
      */
     private observableRegistry = new Map<string, Observable<MatrixEvent>>()
 
@@ -74,11 +75,11 @@ export class RoomSubject extends ReplaySubject<AugmentedRoomData> {
             map(it => {
                 if (!it?.events) return it
 
-                const rootEventsObservables = getRootEvents(it.events).map(it => this.matrix.observedEvent(it))
+                const rootEventsObservables = getRootEvents(it.events).map(it => this.getObservedEvent(it))
                 this.addToRegistry(rootEventsObservables)
 
                 const eventsWithRelationshipsObservable =
-                    getEventsWithRelationships(it.events).map(it => this.matrix.observedEvent(it))
+                    getEventsWithRelationships(it.events).map(it => this.getObservedEvent(it))
                 this.addToRegistry(eventsWithRelationshipsObservable)
 
                 // todo internalize this into the class
@@ -120,6 +121,10 @@ export class RoomSubject extends ReplaySubject<AugmentedRoomData> {
                 return of(error)
             }),
         )
+    }
+
+    private getObservedEvent(it: MatrixEvent) {
+        return EventSubject.observedEvent(it, () => new EventSubject(it, this.eventBus, this.observableRegistry))
     }
 
     private emitEvents(it: { events: MatrixEvent[] }) {

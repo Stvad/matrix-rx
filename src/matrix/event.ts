@@ -1,7 +1,6 @@
 import {MatrixEvent, MessageEventType, ReplaceEvent} from './types/Api'
-import {Observable, scan, tap} from 'rxjs'
+import {BehaviorSubject, Observable, scan, Subscription, tap} from 'rxjs'
 import {Omnibus} from 'omnibus-rxjs'
-import {DeferredSubscribeBehaviorSubject} from '../core/observable'
 
 const hasRelationships = (event: MatrixEvent) => event.content['m.relates_to']
 export const getEventsWithRelationships = (events: MatrixEvent[]) => events.filter(hasRelationships)
@@ -21,7 +20,12 @@ export interface ObservedEvent {
     observable: Observable<MatrixEvent>,
 }
 
-export class EventSubject extends DeferredSubscribeBehaviorSubject<MatrixEvent> {
+/**
+ * Todo describe how the event aggregation works with bus/etc
+ */
+export class EventSubject extends BehaviorSubject<MatrixEvent> {
+    private subscription: Subscription
+
     constructor(
         private initEvent: MatrixEvent,
         private bus: Omnibus<MatrixEvent>,
@@ -40,7 +44,8 @@ export class EventSubject extends DeferredSubscribeBehaviorSubject<MatrixEvent> 
          *
          */
 
-        super(initEvent, () => this.createObservable().subscribe(this))
+        super(initEvent)
+        this.subscription = this.createObservable().subscribe(this)
     }
 
     static observedEvent(event: MatrixEvent, getObservable: () => Observable<MatrixEvent>): ObservedEvent {

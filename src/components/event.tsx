@@ -1,9 +1,9 @@
 import {useObservableValue} from '../core/observable'
-import {Observable} from 'rxjs'
 import {MatrixEvent} from '../matrix/types/Api'
+import {EventSubject} from '../matrix/event'
 
 export interface EventProps {
-    observable: Observable<MatrixEvent>
+    observable: EventSubject
 }
 
 export function MessageContent({event}: { event: MatrixEvent }) {
@@ -16,7 +16,7 @@ export function MessageContent({event}: { event: MatrixEvent }) {
             css={{
                 marginLeft: '0.5em',
             }}
-            dangerouslySetInnerHTML={{__html: event.content.formatted_body}}
+            dangerouslySetInnerHTML={{__html: event.content.formatted_body!}}
         />
     }
 

@@ -64,8 +64,8 @@ export function MessageEditor({room}: MessageEditorProps) {
                      * Consider deriving metadata for the message from the mentions, etc and attaching it to the message
                      * (like mentioned roam page ids, etc)
                      */
-                    <MentionsPlugin suggestions={room.autocompleteSuggestions}/>,
-                    <KeyboardShortcutPlugin onSendMessage={sendMessage}/>,
+                    <MentionsPlugin key='page-mentions' suggestions={room.autocompleteSuggestions}/>,
+                    <KeyboardShortcutPlugin key='kb-shortcut' onSendMessage={sendMessage}/>,
                 ]}
             />
             <button onClick={sendMessage}>Send

@@ -67,7 +67,7 @@ export function Room({roomId}: RoomProps) {
     useEffect(() => {
         const room$ = client.room(roomId)
         setRoom$(room$)
-        const sub = room$.subscribe((it) => {
+        const sub = room$.subscribe((it: AugmentedRoomData) => {
             setRoom(it)
         })
         return () => sub.unsubscribe()

@@ -123,6 +123,8 @@ export interface MessageEventContentInfo_ {
 export interface MessageEventContent {
 	msgtype?: string;
 	body?: string;
+	format?: string;
+	formatted_body?: string;
 	info?: MessageEventContentInfo_;
 	url?: string;
 	membership?: RoomPhase;

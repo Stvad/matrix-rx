@@ -84,31 +84,30 @@ export const extractRoomsInfo = (rooms: { [id: string]: RoomData }): { [id: stri
 
 export const buildRoomHierarchy = (rooms: { [id: string]: InternalAugmentedRoom }): RoomHierarchyData[] => {
     const hasParent = new Set<string>()
-
-    /**
-     * this seems to be problematic bc children point at objects from the rooms object
-     * but we actually recreate each room object. it works rn bc we only have 1 level of hierarchy
-     * but if there were to be more - it'd break
-     * need to create a map of new objects and then transform it into a tree
-     *
-     * helped by me being confused by the types
-     */
-
     const idToChildren = new Map<string, string[]>()
 
     Object.entries(rooms).forEach(([id, room]) => {
         const childrenEvents = getChildRelationEvents(room._rawEvents)
         // todo extract and handle room order
-        const childrenId = childrenEvents.filter(it => rooms[it.state_key!]).map(it => it.state_key!)
+        const childrenIds = childrenEvents.filter(it => rooms[it.state_key!]).map(it => it.state_key!)
+        childrenIds.forEach(it => hasParent.add(it))
 
-        childrenId.forEach(it => hasParent.add(it))
-        idToChildren.set(id, childrenId)
+        idToChildren.set(id, childrenIds)
     })
 
-    const roomHierarchies = new Map<string, RoomHierarchyData>(Object.entries(rooms))
-    roomHierarchies.forEach((room, id) => {
-        room.children = idToChildren.get(id)?.map(it => roomHierarchies.get(it)!) ?? []
-    })
+    function constructHierarchyMap() {
+        // Type conversion is a hack here, figure out a better way.
+        // Need to explicitly modify the "children" vs creating a new object bc
+        // rooms need to maintain references to each other
+
+        const roomHierarchies = new Map<string, RoomHierarchyData>(Object.entries(rooms) as unknown as [string, RoomHierarchyData][])
+        roomHierarchies.forEach((room, id) => {
+            room.children = idToChildren.get(id)?.map(it => roomHierarchies.get(it)!) ?? []
+        })
+        return roomHierarchies
+    }
+
+    const roomHierarchies = constructHierarchyMap()
     return [...roomHierarchies.values()].filter(it => !hasParent.has(it.id))
 }
 

@@ -28,7 +28,7 @@ function RoomList({rooms, setRoomId}: { rooms: RoomHierarchyData[], setRoomId: (
                     setRoomId(r.id)
                 }}
             >
-                {r?.name || 'DM: ' + r.id}
+                {r?.name}
                 {Boolean(r?.children?.length) && <RoomList rooms={r.children} setRoomId={setRoomId}/>}
             </div>)}
     </div>
@@ -96,7 +96,8 @@ export function Room({roomId}: RoomProps) {
         </div>
 
         <button onClick={() => {
-            room$?.loadOlderEvents(room?.gaps.back.token)
+            const token = room?.gaps?.back?.token
+            token && room$?.loadOlderEvents(token)
         }}>^
         </button>
         <div

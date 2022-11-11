@@ -9,7 +9,7 @@ export interface TimelineGap {
 
 interface CommonRoomAugmentations {
     id: string
-    name?: string
+    name: string
     gaps: { back?: TimelineGap }
     autocompleteSuggestions: AutocompleteSuggestion[]
 }
@@ -39,7 +39,7 @@ function getRoomName(events: MatrixEvent[]) {
 
     // @ts-ignore https://github.com/microsoft/TypeScript/issues/48829
     const nameEvent = events.findLast(e => e.type === 'm.room.name') as RoomNameEvent | undefined
-    return nameEvent?.content.name
+    return nameEvent?.content.name ?? 'DM guess: ' + events[0].sender
 }
 
 function getAutocompleteSuggestions(events: MatrixEvent[]) {
@@ -78,9 +78,15 @@ export function createAugmentedRoom(id: string, room: RoomData): InternalAugment
     }
 }
 
-export const extractRoomsInfo = (rooms: { [id: string]: RoomData }): { [id: string]: Partial<AugmentedRoomData> } =>
+export const extractRoomsInfo = (rooms: { [id: string]: RoomData }): { [id: string]: InternalAugmentedRoom } =>
     Object.fromEntries(Object.keys(rooms)
         .map(it => [it, createAugmentedRoom(it, rooms[it])]))
+
+export function mergeNestedRooms(acc: { [id: string]: InternalAugmentedRoom }, curr: { [id: string]: InternalAugmentedRoom }) {
+    const mergedKeys = new Set([...Object.keys(curr), ...Object.keys(acc)])
+    return Object.fromEntries([...mergedKeys].map(it =>
+        [it, mergeRoom(acc[it] || {}, curr[it] || {}, {_rawEvents: fieldMergers._rawEvents})]))
+}
 
 export const buildRoomHierarchy = (rooms: { [id: string]: InternalAugmentedRoom }): RoomHierarchyData[] => {
     const hasParent = new Set<string>()
@@ -121,28 +127,32 @@ const fieldMergers = {
         [...x._rawEvents, ...(y?._rawEvents ?? [])].sort((a, b) => a.origin_server_ts - b.origin_server_ts),
 }
 
-export function mergeNestedRooms(acc: { [id: string]: InternalAugmentedRoom }, curr: { [id: string]: Partial<InternalAugmentedRoom> }) {
-    const mergedKeys = new Set([...Object.keys(curr), ...Object.keys(acc)])
-    return Object.fromEntries([...mergedKeys].map(it =>
-        [it, mergeRoom(acc[it] || {}, curr[it] || {}, {_rawEvents: fieldMergers._rawEvents})]))
-}
+export const mergeRoom = <T extends CommonRoomAugmentations, N extends CommonRoomAugmentations>(
+    aggregate: T,
+    newData: N,
+    fieldMerger: { [id: string]: any } = {events: fieldMergers.events},
+): T => {
+    const mergedFields = Object.fromEntries(
+        Object.keys(fieldMerger)
+            .map(it => [it,
+                fieldMerger[it](aggregate, newData)]))
 
-export const mergeRoom = (
-    aggregate: InternalAugmentedRoom,
-    newData: Partial<AugmentedRoomData>,
-    fieldMerger: {[id: string]: any} = {events: fieldMergers.events},
-) => {
-    const mergedFields = Object.keys(fieldMerger).map(it => [it, fieldMerger[it](aggregate, newData)])
-
-    const allKeys = Object.keys(newData) as (keyof AugmentedRoomData)[]
+    const allKeys = Object.keys(newData) as (keyof N)[]
     const nonEmptyKeys = allKeys.filter(it => !isEmpty(newData[it]))
-    const newFields = nonEmptyKeys.map(it => [it, newData[it]])
+    const newFields = Object.fromEntries(nonEmptyKeys.map(it => [it, newData[it]]))
 
     /**
      * todo
+     * this function is a mess type wise, probably better off separating the hierarchy and Augment room use-cases
+     * though I hope to arrive at solution that brings them closer together
+     *
+     *
+     * also
      * This still has more issues.
-     * The nested event lists are not merged & overridden with empty arrays
+     * The nested event lists (state, timeline) are not merged & overridden with latest data (which is usually empty)
      * I don't really care for state & timeline as they are lifted into `events`
+     * - but we should clearly indicate that that is not a part of the aggregate (e.g. by removing it from the type)
+     *
      * Account_data is tbd
      */
 

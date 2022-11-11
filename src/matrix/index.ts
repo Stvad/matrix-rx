@@ -7,7 +7,7 @@ import {Omnibus} from 'omnibus-rxjs'
 import {getIncrementalFilter, getInitialFilter} from './sync-filter'
 import RestClient from './api/RestClient'
 import {Credentials} from './types/Credentials'
-import {AugmentedRoomData, buildRoomHierarchy, extractRoomsInfo, InternalAugmentedRoom, mergeNestedRooms} from './room'
+import {buildRoomHierarchy, extractRoomsInfo, InternalAugmentedRoom, mergeNestedRooms, RoomHierarchyData} from './room'
 import {RoomSubject} from './room/subject'
 
 const syncTimeout = 10000
@@ -80,7 +80,7 @@ export class Matrix {
             direction = 'b',
             limit = '100',
         }: LoadHistoricEventsParams,
-    ): Observable<Partial<InternalAugmentedRoom>> {
+    ): Observable<Pick<InternalAugmentedRoom, '_rawEvents' | 'gaps'>> {
         const params = new URLSearchParams({
             from: from,
             dir: direction,
@@ -112,7 +112,7 @@ export class Matrix {
         return new RoomSubject(roomId, this, this.matrixEventBus)
     }
 
-    roomList(): Observable<AugmentedRoomData[]> {
+    roomList(): Observable<RoomHierarchyData[]> {
         return this.sync().pipe(
             map(it => it.rooms?.join ?? {}),
             map(extractRoomsInfo),

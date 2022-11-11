@@ -41,17 +41,6 @@ export class EventSubject extends BehaviorSubject<MatrixEvent> {
         this.subscription = this.createObservable().subscribe(this)
     }
 
-    static observedEvent(event: MatrixEvent, getObservable: () => EventSubject): EventSubject {
-        // todo with this becoming a subject this is redundant
-        return getObservable()
-        // return {
-        //     id: event.event_id,
-        //     timestamp: event.origin_server_ts,
-        //     type: event.type,
-        //     observable: getObservable(),
-        // }
-    }
-
     createObservable(): Observable<MatrixEvent> {
         const eventId = this.initEvent.event_id
         const mergeReplaceEvent = (event: MatrixEvent, edit: MatrixEvent) => {

@@ -99,11 +99,11 @@ export class RoomSubject extends ReplaySubject<AugmentedRoomData> {
     private transformAndEmitEvents<T extends InternalRoomData>(room: T) {
         if (!room?._rawEvents) throw new Error('no events in room data')
 
-        const rootEventsObservables = getRootEvents(room._rawEvents).map(it => this.getObservedEvent(it))
+        const rootEventsObservables = getRootEvents(room._rawEvents).map(it => this.createEventSubject(it))
         this.addToRegistry(rootEventsObservables)
 
         const eventsWithRelationshipsObservable =
-            getEventsWithRelationships(room._rawEvents).map(it => this.getObservedEvent(it))
+            getEventsWithRelationships(room._rawEvents).map(it => this.createEventSubject(it))
         this.addToRegistry(eventsWithRelationshipsObservable)
 
         this.emitEvents(room)
@@ -131,8 +131,8 @@ export class RoomSubject extends ReplaySubject<AugmentedRoomData> {
         }
     }
 
-    private getObservedEvent(it: MatrixEvent) {
-        return EventSubject.observedEvent(it, () => new EventSubject(it, this.eventBus, this.observableRegistry))
+    private createEventSubject(it: MatrixEvent) {
+        return new EventSubject(it, this.eventBus, this.observableRegistry)
     }
 
     private emitEvents(it: InternalRoomData) {

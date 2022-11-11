@@ -29,9 +29,10 @@ function Placeholder() {
 const editorConfig = {
     // theme: ExampleTheme,
     // Handling of errors during update
-    onError(error) {
+    onError (error: Error, editor: LexicalEditor) {
         throw error
     },
+    namespace: 'lexical-editor',
 
     nodes: [
         HeadingNode,

@@ -8,6 +8,7 @@ import {useLocalStorageState} from '../core/react'
 import {Event} from './event'
 
 function RoomList({rooms, setRoomId}: { rooms: AugmentedRoomData[], setRoomId: (roomId: string) => void }) {
+    console.log('rlist', {rooms})
     return <div
         css={{
             display: 'flex',
@@ -15,7 +16,7 @@ function RoomList({rooms, setRoomId}: { rooms: AugmentedRoomData[], setRoomId: (
             marginBottom: '1em',
         }}
     >
-        {rooms && rooms.map(r =>
+        {rooms?.map(r =>
             <button
                 key={r.id}
                 onClick={(e) => {
@@ -100,9 +101,9 @@ export function Room({roomId}: RoomProps) {
                 marginBottom: '1em',
             }}
         >
-            {room?.messages?.map(it => <Event key={it.id} observable={it.observable}/>)}
+            {room?.messages?.map(it => <Event key={it.value.event_id} observable={it}/>)}
         </div>
-        <MessageEditor room={room}/>
+        {room && <MessageEditor room={room}/>}
     </div>
 }
 

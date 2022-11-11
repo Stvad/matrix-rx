@@ -13,13 +13,6 @@ export function isThreadChildOf(threaded: MatrixEvent, root: MatrixEvent) {
         threaded.content['m.relates_to']?.event_id === root.event_id
 }
 
-export interface ObservedEvent {
-    id: string,
-    timestamp: number,
-    type: MessageEventType,
-    observable: Observable<MatrixEvent>,
-}
-
 /**
  * Todo describe how the event aggregation works with bus/etc
  */
@@ -29,7 +22,7 @@ export class EventSubject extends BehaviorSubject<MatrixEvent> {
     constructor(
         private initEvent: MatrixEvent,
         private bus: Omnibus<MatrixEvent>,
-        private observableRegistry: Map<string, Observable<MatrixEvent>>,
+        private observableRegistry: Map<string, EventSubject>,
     ) {
         /**
          * todo unsubscribe/release resources procedure
@@ -48,14 +41,15 @@ export class EventSubject extends BehaviorSubject<MatrixEvent> {
         this.subscription = this.createObservable().subscribe(this)
     }
 
-    static observedEvent(event: MatrixEvent, getObservable: () => Observable<MatrixEvent>): ObservedEvent {
+    static observedEvent(event: MatrixEvent, getObservable: () => EventSubject): EventSubject {
         // todo with this becoming a subject this is redundant
-        return {
-            id: event.event_id,
-            timestamp: event.origin_server_ts,
-            type: event.type,
-            observable: getObservable(),
-        }
+        return getObservable()
+        // return {
+        //     id: event.event_id,
+        //     timestamp: event.origin_server_ts,
+        //     type: event.type,
+        //     observable: getObservable(),
+        // }
     }
 
     createObservable(): Observable<MatrixEvent> {
@@ -82,9 +76,8 @@ export class EventSubject extends BehaviorSubject<MatrixEvent> {
             return {
                 ...root,
                 children: [
-                    ...(root.children ?? []),
-                    EventSubject.observedEvent(threaded,
-                        () => this.observableRegistry.get(threaded.event_id) || new EventSubject(threaded, this.bus, this.observableRegistry)),
+                    ...(root.children ?? []), // todo sort?
+                    this.observableRegistry.get(threaded.event_id) || new EventSubject(threaded, this.bus, this.observableRegistry),
                 ],
                 threadRoot: true,
             }

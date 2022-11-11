@@ -66,7 +66,7 @@ export function Event({observable}: EventProps) {
                     marginLeft: '1em',
                 }}
             >
-                {event?.children?.map(it => <Event key={it.id} observable={it.observable}/>)}
+                {event?.children?.map(it => <Event key={it.value.event_id} observable={it}/>)}
             </div>
         </div>
     )

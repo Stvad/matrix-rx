@@ -1,20 +1,36 @@
 import {MatrixEvent, RoomData, RoomNameEvent} from '../types/Api'
 import {AutocompleteConfigurationEvent, AutocompleteSuggestion} from '../extensions/autocomplete'
-import {ObservedEvent} from '../event'
+import {EventSubject} from '../event'
 
-interface TimelineGap {
+export interface TimelineGap {
     token: string,
     timestamp: number,
 }
 
-export interface AugmentedRoomData extends RoomData {
+interface CommonRoomAugmentations {
     id: string
-    events: MatrixEvent[]
-    name: string
+    name?: string
     gaps: { back?: TimelineGap }
     autocompleteSuggestions: AutocompleteSuggestion[]
-    messages: ObservedEvent[]
-    children: AugmentedRoomData[]
+}
+
+export interface InternalRoomData {
+    _rawEvents: MatrixEvent[]
+}
+
+export interface InternalAugmentedRoom extends RoomData, CommonRoomAugmentations, InternalRoomData {
+}
+
+
+// output of full room pipeline
+export interface AugmentedRoomData extends RoomData, CommonRoomAugmentations {
+    events: EventSubject[]
+    messages: EventSubject[]
+}
+
+// used in RoomList
+export interface RoomHierarchyData extends RoomData, CommonRoomAugmentations {
+    children: RoomHierarchyData[]
 }
 
 function getRoomName(events: MatrixEvent[]) {
@@ -37,13 +53,13 @@ function getAutocompleteSuggestions(events: MatrixEvent[]) {
 const getChildRelationEvents = (loadedRoomEvents: MatrixEvent[]) =>
     loadedRoomEvents.filter(it => it.type === 'm.space.child')
 
-export function createAugmentedRoom(id: string, room: RoomData): Partial<AugmentedRoomData> {
-    // todo members
+export function createAugmentedRoom(id: string, room: RoomData): InternalAugmentedRoom {
+    // todo extract members
     const loadedRoomEvents = [...room.state.events, ...room.timeline.events]
     return {
         ...room,
         id,
-        events: loadedRoomEvents,
+        _rawEvents: loadedRoomEvents,
         name: getRoomName(loadedRoomEvents),
         /** todo
          * the story is more complicated, can have windows of unloaded messages, etc
@@ -66,37 +82,62 @@ export const extractRoomsInfo = (rooms: { [id: string]: RoomData }): { [id: stri
     Object.fromEntries(Object.keys(rooms)
         .map(it => [it, createAugmentedRoom(it, rooms[it])]))
 
-export const buildRoomHierarchy = (rooms: { [id: string]: AugmentedRoomData }): AugmentedRoomData[] => {
+export const buildRoomHierarchy = (rooms: { [id: string]: InternalAugmentedRoom }): RoomHierarchyData[] => {
     const hasParent = new Set<string>()
 
-    return Object.keys(rooms).map(it => {
-        const room = rooms[it]
-        const childrenEvents = getChildRelationEvents(room.events)
-        // todo extract and handle order
-        const children = childrenEvents.map(it => rooms[it.state_key!]).filter(Boolean)
+    /**
+     * this seems to be problematic bc children point at objects from the rooms object
+     * but we actually recreate each room object. it works rn bc we only have 1 level of hierarchy
+     * but if there were to be more - it'd break
+     * need to create a map of new objects and then transform it into a tree
+     *
+     * helped by me being confused by the types
+     */
 
-        children.forEach(it => hasParent.add(it.id))
+    const idToChildren = new Map<string, string[]>()
 
-        return {
-            ...room,
-            children,
-        }
-    }).filter(it => !hasParent.has(it.id))
+    Object.entries(rooms).forEach(([id, room]) => {
+        const childrenEvents = getChildRelationEvents(room._rawEvents)
+        // todo extract and handle room order
+        const childrenId = childrenEvents.filter(it => rooms[it.state_key!]).map(it => it.state_key!)
+
+        childrenId.forEach(it => hasParent.add(it))
+        idToChildren.set(id, childrenId)
+    })
+
+    const roomHierarchies = new Map<string, RoomHierarchyData>(Object.entries(rooms))
+    roomHierarchies.forEach((room, id) => {
+        room.children = idToChildren.get(id)?.map(it => roomHierarchies.get(it)!) ?? []
+    })
+    return [...roomHierarchies.values()]
 }
 
-export function mergeNestedRooms(acc: { [id: string]: AugmentedRoomData }, curr: { [id: string]: Partial<AugmentedRoomData> }) {
-    const mergedKeys = new Set([...Object.keys(curr), ...Object.keys(acc)])
-    return Object.fromEntries([...mergedKeys].map(it =>
-        [it, mergeRoom(acc[it] || {}, curr[it] || {})]))
-}
-
-export const mergeRoom = (aggregate: AugmentedRoomData, newData: Partial<AugmentedRoomData>) => {
+const fieldMergers = {
     // todo performance wise - should be able to just do merge part of merge sort instead of full sort
     // todo dedup, though maybe even at an earlier stage (observable creation)
-    const events = [...aggregate.events, ...(newData?.events ?? [])].sort((a, b) => a.timestamp - b.timestamp)
 
-    const nonEmptyFields = Object.keys(newData).filter(it => !isEmpty(newData[it]))
-    const newFields = Object.fromEntries(nonEmptyFields.map(it => [it, newData[it]]))
+    events: (x: { events: EventSubject[] }, y: { events: EventSubject[] }) =>
+        [...x.events, ...(y?.events ?? [])].sort((a, b) => a.value.origin_server_ts - b.value.origin_server_ts),
+    _rawEvents: (x: { _rawEvents: MatrixEvent[] }, y: { _rawEvents: MatrixEvent[] }) =>
+        [...x._rawEvents, ...(y?._rawEvents ?? [])].sort((a, b) => a.origin_server_ts - b.origin_server_ts),
+}
+
+export function mergeNestedRooms(acc: { [id: string]: InternalAugmentedRoom }, curr: { [id: string]: Partial<InternalAugmentedRoom> }) {
+    const mergedKeys = new Set([...Object.keys(curr), ...Object.keys(acc)])
+    return Object.fromEntries([...mergedKeys].map(it =>
+        [it, mergeRoom(acc[it] || {}, curr[it] || {}, {_rawEvents: fieldMergers._rawEvents})]))
+}
+
+export const mergeRoom = (
+    aggregate: InternalAugmentedRoom,
+    newData: Partial<AugmentedRoomData>,
+    fieldMerger: {[id: string]: any} = {events: fieldMergers.events},
+) => {
+    const mergedFields = Object.keys(fieldMerger).map(it => [it, fieldMerger[it](aggregate, newData)])
+
+    const allKeys = Object.keys(newData) as (keyof AugmentedRoomData)[]
+    const nonEmptyKeys = allKeys.filter(it => !isEmpty(newData[it]))
+    const newFields = nonEmptyKeys.map(it => [it, newData[it]])
 
     /**
      * todo
@@ -109,13 +150,13 @@ export const mergeRoom = (aggregate: AugmentedRoomData, newData: Partial<Augment
     return {
         ...aggregate,
         ...newFields,
-        events,
+        ...mergedFields,
         gaps: {
             /**
              * We want to have the token associated with the oldest message (retrieved on first sync or on back pagination)
              */
-            back: mergeGapBack(aggregate.gaps.back, newData?.gaps?.back)
-        }
+            back: mergeGapBack(aggregate.gaps.back!, newData?.gaps?.back),
+        },
     }
 }
 

@@ -12,10 +12,3 @@ export interface MessageEvent {
 	tempId?: string;
 	isRedacted?: boolean;
 }
-
-export interface TemporaryMessage {
-	body: string;
-	senderId?: string;
-	time?: number;
-	tempId?: string;
-}

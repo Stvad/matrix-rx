@@ -14,7 +14,6 @@ import {
 	NewRoomOptions_,
 	LoginParamType,
 	RegisterStageType,
-	RoomType,
 	GetPublicRoomsResponse_,
 	StateEventContent,
 	StateEventType,
@@ -25,8 +24,6 @@ import {
 	MatrixEvent,
 } from '../types/Api';
 import { RoomSummary } from '../types/RoomSummary'
-import EventUtils from '../utils/EventUtils';
-import { MessageEvent } from '../types/MessageEvent';
 import {User} from '../types/User'
 import {Credentials} from '../types/Credentials'
 import AsyncStorage from '../../core/AsyncStorage'
@@ -361,39 +358,6 @@ export class ApiClient {
 		const restClient = new RestClient(this.credentials.accessToken, this.credentials.homeServer, PREFIX_REST);
 
 		return restClient.sendStateEvent(roomId, type, content, stateKey);
-	}
-
-	public async getRoomEvents(
-		roomId: string,
-		roomType: RoomType,
-		messageCountAdd: number,
-		from: string,
-		previousEventTime: number
-	): Promise<{ events: MatrixEvent[]; endToken: string; timelineLimited: boolean }> {
-		let filter: { types: string[] };
-		if (roomType === 'community') {
-			filter = {
-				types: ['m.room.message', 'm.room.name', 'm.room.avatar', 'm.room.encrypted'],
-			};
-		} else {
-			filter = {
-				types: ['m.room.message', 'm.room.member', 'm.room.name', 'm.room.avatar', 'm.room.encrypted'],
-			};
-		}
-
-		const restClient = new RestClient(this.credentials.accessToken, this.credentials.homeServer, PREFIX_REST);
-
-		const response = await restClient
-			.getRoomMessages(roomId, messageCountAdd, 'b', from, '', filter)
-			.catch(_error => null);
-
-		if (response) {
-			const timelineLimited = messageCountAdd === response.chunk.length;
-			const events = EventUtils.filterRoomEvents(response.chunk, roomType, previousEventTime);
-			return Promise.resolve({ events: events, endToken: response.end, timelineLimited: timelineLimited });
-		} else {
-			return Promise.resolve({ events: [], endToken: '', timelineLimited: false });
-		}
 	}
 
 	public async getImageEvents(

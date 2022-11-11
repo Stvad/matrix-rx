@@ -2,36 +2,40 @@ import {useWhileMounted} from '../core/observable'
 import {useEffect, useState} from 'react'
 import {useMatrixClient} from './context'
 import {MessageEditor} from './editor/message-editor'
-import {AugmentedRoomData} from '../matrix/room'
+import {AugmentedRoomData, RoomHierarchyData} from '../matrix/room'
 import {RoomSubject} from '../matrix/room/subject'
 import {useLocalStorageState} from '../core/react'
 import {Event} from './event'
 
-function RoomList({rooms, setRoomId}: { rooms: AugmentedRoomData[], setRoomId: (roomId: string) => void }) {
+function RoomList({rooms, setRoomId}: { rooms: RoomHierarchyData[], setRoomId: (roomId: string) => void }) {
     console.log('rlist', {rooms})
     return <div
         css={{
             display: 'flex',
             flexDirection: 'column',
-            marginBottom: '1em',
+            marginRight: '1em',
         }}
     >
         {rooms?.map(r =>
-            <button
+            <div
+                css={{
+                    padding: '0.5em',
+                }}
+                className={'room-list-item button-like'}
                 key={r.id}
                 onClick={(e) => {
                     e.stopPropagation()
                     setRoomId(r.id)
                 }}
             >
-                {r?.name}
-                {r?.children?.length && <RoomList rooms={r.children} setRoomId={setRoomId}/>}
-            </button>)}
+                {r?.name || 'DM: ' + r.id}
+                {Boolean(r?.children?.length) && <RoomList rooms={r.children} setRoomId={setRoomId}/>}
+            </div>)}
     </div>
 }
 
 export function MainChatWindow() {
-    const [rooms, setRooms] = useState<AugmentedRoomData[]>([])
+    const [rooms, setRooms] = useState<RoomHierarchyData[]>([])
     const client = useMatrixClient()
     useWhileMounted(() => client.roomList().subscribe(it => setRooms(it)), [client])
 

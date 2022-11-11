@@ -109,7 +109,7 @@ export const buildRoomHierarchy = (rooms: { [id: string]: InternalAugmentedRoom 
     roomHierarchies.forEach((room, id) => {
         room.children = idToChildren.get(id)?.map(it => roomHierarchies.get(it)!) ?? []
     })
-    return [...roomHierarchies.values()]
+    return [...roomHierarchies.values()].filter(it => !hasParent.has(it.id))
 }
 
 const fieldMergers = {

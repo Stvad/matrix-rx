@@ -84,8 +84,12 @@ export const extractRoomsInfo = (rooms: { [id: string]: RoomData }): { [id: stri
 
 export function mergeNestedRooms(acc: { [id: string]: InternalAugmentedRoom }, curr: { [id: string]: InternalAugmentedRoom }) {
     const mergedKeys = new Set([...Object.keys(curr), ...Object.keys(acc)])
+
+    const mergeNestedRoom = (id: string) =>
+        mergeRoom(acc[id], curr[id] || {}, {_rawEvents: fieldMergers._rawEvents})
+
     return Object.fromEntries([...mergedKeys].map(it =>
-        [it, mergeRoom(acc[it] || {}, curr[it] || {}, {_rawEvents: fieldMergers._rawEvents})]))
+        [it, acc[it] ? mergeNestedRoom(it) : curr[it]]))
 }
 
 export const buildRoomHierarchy = (rooms: { [id: string]: InternalAugmentedRoom }): RoomHierarchyData[] => {

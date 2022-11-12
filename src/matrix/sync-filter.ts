@@ -81,8 +81,8 @@ export function getInitialFilter(roomId?: string) {
     const roomFilter_: RoomFilter = {
         rooms: roomId ? [roomId] : undefined,
         timeline: {
-            limit: roomId ? 15 : 0,
-            types: roomId ? timelineEventsToSync : [],
+            limit: roomId ? 15 : 1,
+            types: timelineEventsToSync,
         },
         state: {
             lazy_load_members: true,

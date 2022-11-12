@@ -141,8 +141,8 @@ export class RoomSubject extends ReplaySubject<AugmentedRoomData> {
 
     private addToRegistry(eventSubjects: EventSubject[]) {
         eventSubjects.forEach(it => {
-            if (this.observableRegistry.has(it.value.event_id)) { // debugging
-                console.log('already have event in registry', it.value.event_id)
+            if (this.observableRegistry.has(it.value.event_id)) { // tracing those duplicates
+                console.debug('already have event in registry', it.value.event_id)
             }
             this.observableRegistry.set(it.value.event_id, it)
         })

@@ -27,7 +27,7 @@ export interface RawEvent extends MatrixEvent {
     kind: 'raw-event'
 }
 
-const rawToAggregated = (it: RawEvent | AggregatedEvent) => ({
+const rawToAggregated = (it: RawEvent | AggregatedEvent | MatrixEvent) => ({
     ...it,
     kind: 'aggregated-event',
     children: []
@@ -41,7 +41,7 @@ export class EventSubject extends BehaviorSubject<AggregatedEvent> {
     private subscription: Subscription
 
     constructor(
-        private initEvent: RawEvent,
+        private initEvent: MatrixEvent,
         private bus: Omnibus<RawEvent | AggregatedEvent>,
         private observableRegistry: Map<string, EventSubject>,
     ) {

@@ -1,4 +1,18 @@
-import {catchError, filter, map, merge, mergeMap, Observable, of, ReplaySubject, scan, tap} from 'rxjs'
+import {
+    catchError,
+    filter,
+    map,
+    merge,
+    mergeAll,
+    mergeMap,
+    Observable,
+    of,
+    ReplaySubject,
+    scan,
+    Subject,
+    takeWhile,
+    tap,
+} from 'rxjs'
 import {AugmentedRoomData, createAugmentedRoom, InternalRoomData, mergeRoom} from './index'
 import {Omnibus} from 'omnibus-rxjs'
 import {Matrix} from '../index'
@@ -31,7 +45,9 @@ export class RoomSubject extends ReplaySubject<AugmentedRoomData> {
         private matrix: Matrix,
         /** should event bus and control bus be the same thing? */
         private eventBus: Omnibus<RawEvent | AggregatedEvent> = new Omnibus(),
+        // can probably be replaced with a subject
         private controlBus: Omnibus<ControlEvent> = new Omnibus(),
+        private newEvents: Subject<EventSubject> = new Subject(),
     ) {
         super(1)
     }
@@ -51,11 +67,26 @@ export class RoomSubject extends ReplaySubject<AugmentedRoomData> {
     }
 
 
+    /**
+     * todo: if user calls this a few times in a quick succession, it'll load the same events multiple times
+     * I should probably configure the observable to ignore duplicate requests. presumably the params will remain the same
+     *
+     * I also keep wondering if I should do dedup inside pipeline, but that seems like a wrong solution
+     */
     // todo did pagination start taking longer?
     public loadOlderEvents(from: string, to?: string) {
         // todo meaningful only with active subscription, enforce?
 
         this.controlBus.trigger({type: 'loadEventFromPast', roomId: this.roomId, from, to})
+    }
+
+    public watchForNewEvents(): Observable<EventSubject> {
+        // todo need to have an active subscription to the room for this to work
+        return this.newEvents.asObservable().pipe(takeWhile(() => !this.closed))
+    }
+
+    public watchForNewEventValues(): Observable<AggregatedEvent> {
+        return this.watchForNewEvents().pipe(mergeAll())
     }
 
     createObservable(): Observable<AugmentedRoomData> {
@@ -97,11 +128,11 @@ export class RoomSubject extends ReplaySubject<AugmentedRoomData> {
         if (!room?._rawEvents) throw new Error('no events in room data')
 
         const rootEventsObservables = getRootEvents(room._rawEvents).map(it => this.createEventSubject(it))
-        this.addToRegistry(rootEventsObservables)
+        this.addToRegistryAndEmit(rootEventsObservables)
 
         const eventsWithRelationshipsObservable =
             getEventsWithRelationships(room._rawEvents).map(it => this.createEventSubject(it))
-        this.addToRegistry(eventsWithRelationshipsObservable)
+        this.addToRegistryAndEmit(eventsWithRelationshipsObservable)
 
         this.emitEvents(room)
 
@@ -136,17 +167,19 @@ export class RoomSubject extends ReplaySubject<AugmentedRoomData> {
         it._rawEvents?.forEach(it => this.eventBus.trigger({...it, kind: 'raw-event'}))
     }
 
-    private addToRegistry(eventSubjects: EventSubject[]) {
+    private addToRegistryAndEmit(eventSubjects: EventSubject[]) {
         eventSubjects.forEach(it => {
             if (this.observableRegistry.has(it.value.event_id)) { // tracing those duplicates
+                // todo
                 console.debug('already have event in registry', it.value.event_id)
+                return
             }
             this.observableRegistry.set(it.value.event_id, it)
+            this.newEvents.next(it)
         })
     }
 
-
-    onLoadEventsRequest() {
+    private onLoadEventsRequest() {
         return this.controlBus.query((it => it.type === 'loadEventFromPast' && it.roomId === this.roomId))
             .pipe(
                 tap(it => console.log('scrolling', it)),

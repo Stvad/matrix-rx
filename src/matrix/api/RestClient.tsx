@@ -26,7 +26,7 @@ export default class RestClient extends GenericRestClient {
 		super('https://' + homeServer + prefix);
 	}
 
-	protected _getHeaders(options: ApiCallOptions): { [key: string]: string } {
+	protected override _getHeaders(options: ApiCallOptions): { [key: string]: string } {
 		const headers = super._getHeaders(options);
 
 		if (this.accessToken) {

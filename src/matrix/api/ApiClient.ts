@@ -1,5 +1,4 @@
 import RestClient from './RestClient';
-// import DataStore from '../stores/DataStore';
 export const PREFIX_REST = '/_matrix/client/v3/';
 export const PREFIX_MEDIA = '/_matrix/media/v3/';
 
@@ -149,17 +148,6 @@ export class ApiClient {
 		return restClient.register(data);
 	}
 
-	public setCredentials(credentials: Credentials) {
-		this.credentials = {
-			userId: credentials.userId,
-			userIdFull: credentials.userIdFull,
-			accessToken: credentials.accessToken,
-			deviceId: credentials.deviceId,
-			homeServer: credentials.homeServer,
-		};
-
-		void this.storeCredentials(this.credentials)
-	}
 
 	public deleteAccount(type?: LoginParamType, password?: string, session?: string): Promise<unknown> {
 		const restClient = new RestClient(this.credentials.accessToken, this.credentials.homeServer, PREFIX_REST);
@@ -492,34 +480,6 @@ export class ApiClient {
 		return restClient.kickMember(roomId, userId);
 	}
 
-	private async storeCredentials(credentials: Credentials): Promise<void> {
-		return AsyncStorage.setItem('credentials', JSON.stringify(credentials))
-	}
-
-	private storeDatastore() {
-		// const storeRoomSummary = async function (): Promise<void> {
-		// 	const roomSummaryList = DataStore.getRoomSummaryList();
-		//
-		// 	await AsyncStorage.setItem('roomSummaryList', JSON.stringify(roomSummaryList)).catch(error => {
-		// 		return Promise.reject(error);
-		// 	});
-		//
-		// 	return Promise.resolve();
-		// };
-		//
-		// const storeLastSeenTime = async function (): Promise<void> {
-		// 	// const lastSeenTime = DataStore.getLastSeenTimeArray();
-		//
-		// 	await AsyncStorage.setItem('lastSeenTime', JSON.stringify(lastSeenTime)).catch(error => {
-		// 		return Promise.reject(error);
-		// 	});
-		//
-		// 	return Promise.resolve();
-		// };
-		//
-		// return Promise.all([storeRoomSummary(), storeLastSeenTime()]);
-	}
-
 	public restoreDataStore(): Promise<[void, void]> {
 		const restoreRoomSummary = async function (): Promise<void> {
 			const response = await AsyncStorage.getItem('roomSummaryList').catch(error => {
@@ -587,50 +547,6 @@ export class ApiClient {
 
 		return Promise.resolve(lastUserId ? lastUserId : undefined);
 	}
-
-	public storeZoomFactor(zoomFactor: number): void {
-		AsyncStorage.setItem('zoomFactor', zoomFactor.toString()).catch(_error => null);
-	}
-
-	public async getStoredZoomFactor(): Promise<number | undefined> {
-		const zoomFactor = await AsyncStorage.getItem('zoomFactor');
-
-		return Promise.resolve(zoomFactor ? Number(zoomFactor) : undefined);
-	}
-
-	public getStoredSyncToken(): Promise<string | undefined> {
-		return AsyncStorage.getItem('syncToken');
-	}
-
-	private storeSyncToken(): Promise<void> {
-		const syncToken = Sync.getNextSyncToken();
-
-		return AsyncStorage.setItem('syncToken', syncToken);
-	}
-
-	public storeAppVersion() {
-		// const appVersion = APP_VERSION;
-		//
-		// return AsyncStorage.setItem('appVersion', appVersion);
-	}
-
-	public getStoredAppVersion(): Promise<string | undefined> {
-		return AsyncStorage.getItem('appVersion');
-	}
-
-	public storeAppData = async () => {
-		const nextSyncToken = this.getNextSyncToken();
-
-		if (nextSyncToken) {
-			const storedSyncToken = await this.getStoredSyncToken();
-
-			if (storedSyncToken !== nextSyncToken) {
-				await this.storeDatastore();
-				await this.storeSyncToken();
-				await this.storeAppVersion();
-			}
-		}
-	};
 }
 
 export default new ApiClient();

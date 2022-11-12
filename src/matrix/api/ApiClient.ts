@@ -1,5 +1,4 @@
 import RestClient from './RestClient';
-import Sync from './Sync';
 // import DataStore from '../stores/DataStore';
 export const PREFIX_REST = '/_matrix/client/v3/';
 export const PREFIX_MEDIA = '/_matrix/media/v3/';
@@ -222,34 +221,6 @@ export class ApiClient {
 		const restClient = new RestClient(this.credentials.accessToken, this.credentials.homeServer, PREFIX_REST);
 
 		return restClient.getPushRules();
-	}
-
-	// sync
-
-	public startSync(nextSyncToken: string) {
-		Sync.setSyncStopped(false);
-
-		Sync.start(nextSyncToken, this.credentials.accessToken, this.credentials.homeServer);
-	}
-
-	public isSyncStopped() {
-		return Sync.isSyncStopped();
-	}
-
-	public stopSync() {
-		Sync.setSyncStopped(true);
-	}
-
-	public clearNextSyncToken() {
-		Sync.clearNextSyncToken();
-	}
-
-	public getNextSyncToken(): string {
-		return Sync.getNextSyncToken();
-	}
-
-	public setNextSyncToken(nextSyncToken: string) {
-		Sync.setNextSyncToken(nextSyncToken);
 	}
 
 	// restClient

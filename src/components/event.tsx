@@ -1,12 +1,11 @@
 import {useObservableValue} from '../core/observable'
-import {MatrixEvent} from '../matrix/types/Api'
-import {EventSubject} from '../matrix/event'
+import {AggregatedEvent, EventSubject} from '../matrix/event'
 
 export interface EventProps {
     observable: EventSubject
 }
 
-export function MessageContent({event}: { event: MatrixEvent }) {
+export function MessageContent({event}: { event: AggregatedEvent }) {
     const sharedProps = {
         className: 'message-content',
     }

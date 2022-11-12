@@ -3,7 +3,7 @@ import {AugmentedRoomData, createAugmentedRoom, InternalRoomData, mergeRoom} fro
 import {Omnibus} from 'omnibus-rxjs'
 import {Matrix} from '../index'
 import {Subscription} from 'rxjs/internal/Subscription'
-import {EventSubject, getEventsWithRelationships, getRootEvents} from '../event'
+import {AggregatedEvent, EventSubject, getEventsWithRelationships, getRootEvents, RawEvent} from '../event'
 import {MatrixEvent} from '../types/Api'
 
 export interface ControlEvent {
@@ -29,11 +29,8 @@ export class RoomSubject extends ReplaySubject<AugmentedRoomData> {
     constructor(
         public roomId: string,
         private matrix: Matrix,
-        /**
-         * should event bus be room specific?
-         * should event bus and control bus be the same thing?
-         */
-        private eventBus: Omnibus<MatrixEvent>,
+        /** should event bus and control bus be the same thing? */
+        private eventBus: Omnibus<RawEvent | AggregatedEvent> = new Omnibus(),
         private controlBus: Omnibus<ControlEvent> = new Omnibus(),
     ) {
         super(1)
@@ -136,7 +133,7 @@ export class RoomSubject extends ReplaySubject<AugmentedRoomData> {
     }
 
     private emitEvents(it: InternalRoomData) {
-        it._rawEvents?.forEach(it => this.eventBus.trigger(it))
+        it._rawEvents?.forEach(it => this.eventBus.trigger({...it, kind: 'raw-event'}))
     }
 
     private addToRegistry(eventSubjects: EventSubject[]) {

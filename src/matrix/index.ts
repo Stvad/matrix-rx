@@ -43,7 +43,6 @@ export class Matrix {
         private credentials: Credentials,
         private restClient: RestClient,
         private serverUrl: string = `https://matrix-client.matrix.org`,
-        public matrixEventBus: Omnibus<MatrixEvent> = new Omnibus(),
     ) {
     }
 
@@ -109,7 +108,7 @@ export class Matrix {
     }
 
     room(roomId: string): RoomSubject {
-        return new RoomSubject(roomId, this, this.matrixEventBus)
+        return new RoomSubject(roomId, this)
     }
 
     roomList(): Observable<RoomHierarchyData[]> {

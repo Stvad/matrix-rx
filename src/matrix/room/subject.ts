@@ -9,8 +9,7 @@ import {
     of,
     ReplaySubject,
     scan,
-    Subject,
-    takeWhile,
+    share,
     tap,
 } from 'rxjs'
 import {AugmentedRoomData, createAugmentedRoom, InternalRoomData, mergeRoom} from './index'
@@ -37,6 +36,7 @@ export class RoomSubject extends ReplaySubject<AugmentedRoomData> {
      * rn it's used to dedup event observables creation for the room
      */
     private observableRegistry = new Map<string, EventSubject>()
+    private _observable: Observable<AugmentedRoomWithNoMessages>
 
     private subscription: Subscription | undefined
 
@@ -47,9 +47,9 @@ export class RoomSubject extends ReplaySubject<AugmentedRoomData> {
         private eventBus: Omnibus<RawEvent | AggregatedEvent> = new Omnibus(),
         // can probably be replaced with a subject
         private controlBus: Omnibus<ControlEvent> = new Omnibus(),
-        private newEvents: Subject<EventSubject> = new Subject(),
     ) {
         super(1)
+        this._observable = this.syncRoomOrEventsFromPagination().pipe(share())
     }
 
     override subscribe(...args: any[]): Subscription {
@@ -81,32 +81,22 @@ export class RoomSubject extends ReplaySubject<AugmentedRoomData> {
     }
 
     public watchForNewEvents(): Observable<EventSubject> {
-        // todo need to have an active subscription to the room for this to work
-        return this.newEvents.asObservable().pipe(takeWhile(() => !this.closed))
+        return this._observable.pipe(map(it => it.events), mergeAll())
     }
 
     public watchForNewEventValues(): Observable<AggregatedEvent> {
         return this.watchForNewEvents().pipe(mergeAll())
     }
 
-    createObservable(): Observable<AugmentedRoomData> {
-        const roomFromSync = this.matrix.sync(this.roomId).pipe(
-            tap(console.log),
-            map(it => it.rooms?.join ?? {}),
-            filter(it => it[this.roomId]),
-            map(it => createAugmentedRoom(this.roomId, it[this.roomId])),
-        )
+    private createObservable(): Observable<AugmentedRoomData> {
         /**
          * todo: I need to do the event merging before deriving the room state
          * otherwise state updates like room rename, etc won't be taken into account
-         * or do derivation of arriving partial and then merge the results
+         * or do derivation from arriving partial and then merge the results
          * (e.g. new name event comes in and I can derive new name, overriding the old one on merge)
          */
 
-        return merge(roomFromSync, this.onLoadEventsRequest()).pipe(
-            // todo this type conversion is a lie for rooms from onLoadEventsRequest
-            // may want to make it more like a fake room
-            map(it => this.transformAndEmitEvents(it) as AugmentedRoomWithNoMessages),
+        return this._observable.pipe(
             scan((acc: AugmentedRoomWithNoMessages, curr) => {
                 // Don't do new data synthesis in scan, bc then new data is only available on the second+ batch of events
                 // Merge should happen after initial event transformation
@@ -124,15 +114,31 @@ export class RoomSubject extends ReplaySubject<AugmentedRoomData> {
         )
     }
 
+    private syncRoomOrEventsFromPagination() {
+        return merge(this.roomFromSync(), this.onLoadEventsRequest()).pipe(
+            // todo this type conversion is a lie for rooms from onLoadEventsRequest
+            // may want to make it more like a fake room
+            map(it => this.transformAndEmitEvents(it) as AugmentedRoomWithNoMessages))
+    }
+
+    private roomFromSync() {
+        return this.matrix.sync(this.roomId).pipe(
+            tap(console.log),
+            map(it => it.rooms?.join ?? {}),
+            filter(it => it[this.roomId]),
+            map(it => createAugmentedRoom(this.roomId, it[this.roomId])),
+        )
+    }
+
     private transformAndEmitEvents<T extends InternalRoomData>(room: T) {
         if (!room?._rawEvents) throw new Error('no events in room data')
 
         const rootEventsObservables = getRootEvents(room._rawEvents).map(it => this.createEventSubject(it))
-        this.addToRegistryAndEmit(rootEventsObservables)
+        this.addToRegistry(rootEventsObservables)
 
         const eventsWithRelationshipsObservable =
             getEventsWithRelationships(room._rawEvents).map(it => this.createEventSubject(it))
-        this.addToRegistryAndEmit(eventsWithRelationshipsObservable)
+        this.addToRegistry(eventsWithRelationshipsObservable)
 
         this.emitEvents(room)
 
@@ -167,7 +173,7 @@ export class RoomSubject extends ReplaySubject<AugmentedRoomData> {
         it._rawEvents?.forEach(it => this.eventBus.trigger({...it, kind: 'raw-event'}))
     }
 
-    private addToRegistryAndEmit(eventSubjects: EventSubject[]) {
+    private addToRegistry(eventSubjects: EventSubject[]) {
         eventSubjects.forEach(it => {
             if (this.observableRegistry.has(it.value.event_id)) { // tracing those duplicates
                 // todo
@@ -175,7 +181,6 @@ export class RoomSubject extends ReplaySubject<AugmentedRoomData> {
                 return
             }
             this.observableRegistry.set(it.value.event_id, it)
-            this.newEvents.next(it)
         })
     }
 

@@ -106,6 +106,8 @@ export class EventSubject extends BehaviorSubject<AggregatedEvent> {
             scan((acc: AggregatedEvent, curr: AggregatedEvent) => {
                 if (acc.event_id === curr.event_id) {
                     // todo why?
+                    // generally need to handle deduplication of events
+                    // see https://spec.matrix.org/v1.4/client-server-api/#:~:text=clients%20should%20de-duplicate%20events%20
                     console.log('getting duplicate events 🤔')
                     return acc
                 }

@@ -80,12 +80,12 @@ export class RoomSubject extends ReplaySubject<AugmentedRoomData> {
         this.controlBus.trigger({type: 'loadEventFromPast', roomId: this.roomId, from, to})
     }
 
-    public watchForNewEvents(): Observable<EventSubject> {
+    public watchEvents(): Observable<EventSubject> {
         return this._observable.pipe(map(it => it.events), mergeAll())
     }
 
-    public watchForNewEventValues(): Observable<AggregatedEvent> {
-        return this.watchForNewEvents().pipe(mergeAll())
+    public watchEventValues(): Observable<AggregatedEvent> {
+        return this.watchEvents().pipe(mergeAll())
     }
 
     private createObservable(): Observable<AugmentedRoomData> {
@@ -123,9 +123,8 @@ export class RoomSubject extends ReplaySubject<AugmentedRoomData> {
 
     private roomFromSync() {
         return this.matrix.sync(this.roomId).pipe(
-            tap(console.log),
             map(it => it.rooms?.join ?? {}),
-            filter(it => it[this.roomId]),
+            filter(it => !!it[this.roomId]),
             map(it => createAugmentedRoom(this.roomId, it[this.roomId])),
         )
     }
@@ -185,10 +184,21 @@ export class RoomSubject extends ReplaySubject<AugmentedRoomData> {
     }
 
     private onLoadEventsRequest() {
-        return this.controlBus.query((it => it.type === 'loadEventFromPast' && it.roomId === this.roomId))
-            .pipe(
-                tap(it => console.log('scrolling', it)),
-                mergeMap((it) => this.matrix.loadHistoricEvents({roomId: this.roomId, from: it.from, to: it.to})),
-            )
+        const loadEventBatch = (it: ControlEvent) =>
+            this.matrix.loadEventBatch({roomId: this.roomId, from: it.from, to: it.to})
+                .pipe(map(it => ({
+                        _rawEvents: it.chunk,
+                        gaps: {
+                            back: it.end ? {
+                                token: it.end,
+                                timestamp: it.chunk[0].origin_server_ts,
+                            } : undefined,
+                        },
+                    })),
+                )
+
+        return this.controlBus
+            .query((it => it.type === 'loadEventFromPast' && it.roomId === this.roomId))
+            .pipe(mergeMap(loadEventBatch))
     }
 }

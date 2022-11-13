@@ -1,14 +1,20 @@
-import {catchError, expand, map, Observable, of, scan, shareReplay, tap} from 'rxjs'
+import {catchError, empty, expand, map, Observable, of, reduce, scan, shareReplay, tap} from 'rxjs'
 import {ApiClient, PREFIX_REST} from './api/ApiClient'
 import {ajax} from 'rxjs/internal/ajax/ajax'
-import {MatrixEvent, MessageEventContent, RoomMessagesResponse, StateEvent, SyncResponse} from './types/Api'
-
-import {Omnibus} from 'omnibus-rxjs'
+import {
+    EventsFilter,
+    MatrixEvent,
+    MessageEventContent,
+    RoomMessagesResponse,
+    StateEvent,
+    SyncResponse,
+} from './types/Api'
 import {getIncrementalFilter, getInitialFilter} from './sync-filter'
 import RestClient from './api/RestClient'
 import {Credentials} from './types/Credentials'
 import {buildRoomHierarchy, extractRoomsInfo, InternalAugmentedRoom, mergeNestedRooms, RoomHierarchyData} from './room'
 import {RoomSubject} from './room/subject'
+import {EMPTY} from 'rxjs'
 
 const syncTimeout = 10000
 
@@ -22,12 +28,13 @@ export async function login(params: LoginParams) {
     return await new ApiClient().login(params.userId, params.password, params.server)
 }
 
-interface LoadHistoricEventsParams {
+export interface LoadEventsParams {
     roomId: string
-    from: string
+    from?: string
     to?: string
     direction?: 'b' | 'f'
     limit?: string
+    filter?: EventsFilter
 }
 
 export class Matrix {
@@ -66,45 +73,70 @@ export class Matrix {
 
             return ajax.getJSON(`${this.serverUrl}${PREFIX_REST}sync?` + params.toString())
         }
+        /**
+         * todo handle 'gaps' in the timeline
+         * https://spec.matrix.org/v1.4/client-server-api/#:~:text=%E2%80%9Climited%E2%80%9D%20timeline%20is%20returned%2C%20containing%20only%20the%20most%20recent%20message%20events.%20a%20state%20%E2%80%9Cdelta%E2%80%9D%20is%20also%20returned%2C%20summarising%20any%20state%20changes%20in%20the%20omitted%20part%20of%20the%20timeline.%20the%20client%20may%20therefore%20end%20up%20with%20%E2%80%9Cgaps
+         */
 
         // todo add retry
         return callSync().pipe(expand(r => callSync(r.next_batch)))
     }
 
-    loadHistoricEvents(
+    loadEventBatch(
         {
             roomId,
             from,
             to,
             direction = 'b',
             limit = '100',
-        }: LoadHistoricEventsParams,
-    ): Observable<Pick<InternalAugmentedRoom, '_rawEvents' | 'gaps'>> {
+            filter = {},
+        }: LoadEventsParams,
+    ): Observable<RoomMessagesResponse> {
         const params = new URLSearchParams({
-            from: from,
             dir: direction,
-            limit, // todo make this configurable
+            limit,
             access_token: this.credentials.accessToken,
+            filter: JSON.stringify(filter),
+            ...to && {to},
+            ...from && {from},
         })
-        if (to) {
-            params.set('to', to)
+
+        if (!from) {
+            console.warn('from is empty, are you sure you want to load events from the start of history?')
         }
 
-        // todo handle `from` being empty
-
         return ajax.getJSON<RoomMessagesResponse>(`${this.serverUrl}${PREFIX_REST}rooms/${roomId}/messages?` + params.toString())
-            .pipe(
-                tap(it => console.log('scroll-response', it)),
-                map(it => ({
-                    _rawEvents: it.chunk,
-                    gaps: {
-                        back: {
-                            token: it.end,
-                            timestamp: it.chunk[0].origin_server_ts,
-                        }
-                    },
-                })),
-            )
+            .pipe(tap(it => console.log('load-event-batch-response', it)))
+    }
+
+    loadEvents(params: LoadEventsParams): Observable<RoomMessagesResponse> {
+        /**
+         * b [3 2 1] [6 5 4]
+         * f [1 2 3] [4 5 6]
+         */
+        const mergeEvents = (acc: MatrixEvent[], curr: MatrixEvent[]) =>
+            params.direction === 'f' ? [...acc, ...curr] : [...curr, ...acc]
+
+        return this.loadEventBatch(params).pipe(
+            expand((r): Observable<RoomMessagesResponse> => {
+                if (!r.end) return EMPTY
+                return this.loadEventBatch({
+                    ...params,
+                    from: r.end,
+                })
+            }),
+            /**
+             * one wonders if maybe you want to return
+             * an observable of events instead of waiting to merge all first
+             * def better for large chunks of data
+             */
+            reduce((acc, curr) => ({
+                chunk: mergeEvents(acc.chunk, curr.chunk),
+                state: mergeEvents(acc.state, curr.state),
+                start: curr.start,
+            })),
+            // todo make sure this works with just one chunk
+        )
     }
 
     room(roomId: string): RoomSubject {
@@ -148,5 +180,9 @@ export class Matrix {
         stateEvent: StateEvent,
     ) {
         return this.restClient.sendStateEvent(roomId, stateEvent.type, stateEvent.content, stateEvent.stateKey)
+    }
+
+    getEventContext(roomId: string, eventId: string) {
+        return this.restClient.getEventContext(roomId, eventId)
     }
 }

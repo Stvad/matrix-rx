@@ -292,8 +292,9 @@ export interface GetPublicRoomsResponse_ {
 
 export interface RoomMessagesResponse {
 	start: string
-	end: string
+	end?: string
 	chunk: MatrixEvent[]
+	state: MatrixEvent[]
 }
 
 export interface StateEventContent {
@@ -334,9 +335,21 @@ export interface GetRoomMembersResponse_ {
 }
 
 export interface EventsFilter {
-	types: MessageEventType[];
+	contains_url?: boolean;
+	include_redundant_members?: boolean;
 	lazy_load_members?: boolean;
 	limit?: number;
+	not_rooms?: string[];
+	not_senders?: string[];
+	not_types?: MessageEventType[];
+	rooms?: string[];
+	senders?: string[];
+	/**
+	 *  A list of event types to include. If this list is absent then all event types are included.
+	 *  A '*' can be used as a wildcard to match any sequence of characters.
+	 */
+	types?: MessageEventType[];
+	unread_thread_notifications?: boolean;
 }
 
 export interface RoomFilter {
@@ -423,3 +436,12 @@ export interface SyncResponse {
 	};
 }
 
+
+export interface EventContext {
+	event: MatrixEvent
+	end: string
+	start: string
+	events_after: MatrixEvent[]
+	events_before: MatrixEvent[]
+	state: MatrixEvent[]
+}

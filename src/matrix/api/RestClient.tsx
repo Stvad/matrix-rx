@@ -18,7 +18,7 @@ import {
 	SyncFilter,
 	SyncResponse,
 	PushRulesGetResponse,
-	DirectorySearch_, PushRuleKind, PushRuleScope,
+	DirectorySearch_, PushRuleKind, PushRuleScope, EventContext,
 } from '../types/Api'
 
 export default class RestClient extends GenericRestClient {
@@ -341,5 +341,9 @@ export default class RestClient extends GenericRestClient {
 		};
 
 		return this.performApiPost<void>('rooms/' + roomId + '/kick', data);
+	}
+
+	public getEventContext(roomId: string, eventId: string): Promise<EventContext> {
+		return this.performApiGet<EventContext>('rooms/' + roomId + '/context/' + eventId);
 	}
 }

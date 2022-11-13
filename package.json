@@ -7,7 +7,7 @@
   "types": "lib/index.d.ts",
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build",
+    "build": "vite build",
     "compile": "tsc",
     "watch": "tsc --watch",
     "preview": "vite preview"

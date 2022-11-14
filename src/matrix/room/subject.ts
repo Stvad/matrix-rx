@@ -1,23 +1,10 @@
-import {
-    catchError,
-    filter,
-    map,
-    merge,
-    mergeAll,
-    mergeMap,
-    Observable,
-    of,
-    ReplaySubject,
-    scan,
-    share,
-    tap,
-} from 'rxjs'
-import {AugmentedRoomData, createAugmentedRoom, InternalRoomData, mergeRoom} from './index'
+import {catchError, filter, map, merge, mergeAll, mergeMap, Observable, of, ReplaySubject, scan, share} from 'rxjs'
+import {AugmentedRoomData, createAugmentedRoom, InternalAugmentedRoom, InternalRoomData, mergeRoom} from './index'
 import {Omnibus} from 'omnibus-rxjs'
 import {Matrix} from '../index'
 import {Subscription} from 'rxjs/internal/Subscription'
 import {AggregatedEvent, EventSubject, getEventsWithRelationships, getRootEvents, RawEvent} from '../event'
-import {MatrixEvent} from '../types/Api'
+import {MatrixEvent, RoomMessagesResponse} from '../types/Api'
 
 export interface ControlEvent {
     type: 'loadEventFromPast'
@@ -183,19 +170,24 @@ export class RoomSubject extends ReplaySubject<AugmentedRoomData> {
         })
     }
 
-    private onLoadEventsRequest() {
+    private onLoadEventsRequest(): Observable<Pick<InternalAugmentedRoom, '_rawEvents' | 'gaps'>> {
+        const asRoomPartial = (it: RoomMessagesResponse) => ({
+            _rawEvents: it.chunk,
+            gaps: {
+                back: it.end ? {
+                    token: it.end,
+                    timestamp: it.chunk[0].origin_server_ts,
+                } : undefined,
+            },
+        })
+
         const loadEventBatch = (it: ControlEvent) =>
-            this.matrix.loadEventBatch({roomId: this.roomId, from: it.from, to: it.to})
-                .pipe(map(it => ({
-                        _rawEvents: it.chunk,
-                        gaps: {
-                            back: it.end ? {
-                                token: it.end,
-                                timestamp: it.chunk[0].origin_server_ts,
-                            } : undefined,
-                        },
-                    })),
-                )
+            this.matrix.loadEventBatch({
+                roomId: this.roomId,
+                from: it.from,
+                to: it.to,
+                direction: 'b',
+            }).pipe(map(asRoomPartial))
 
         return this.controlBus
             .query((it => it.type === 'loadEventFromPast' && it.roomId === this.roomId))

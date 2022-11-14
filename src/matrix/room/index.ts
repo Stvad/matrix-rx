@@ -11,6 +11,7 @@ interface CommonRoomAugmentations {
     id: string
     name: string
     gaps: { back?: TimelineGap }
+    // todo move to "extensions" that are dynamically assembled
     autocompleteSuggestions: AutocompleteSuggestion[]
 }
 

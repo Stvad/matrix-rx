@@ -1,4 +1,4 @@
-import {catchError, empty, expand, map, Observable, of, reduce, scan, shareReplay, tap} from 'rxjs'
+import {catchError, empty, expand, from, map, mergeMap, Observable, of, reduce, scan, shareReplay, tap} from 'rxjs'
 import {ApiClient, PREFIX_REST} from './api/ApiClient'
 import {ajax} from 'rxjs/internal/ajax/ajax'
 import {
@@ -31,8 +31,8 @@ export async function login(params: LoginParams) {
 export interface LoadEventsParams {
     roomId: string
     from?: string
+    direction: 'b' | 'f'
     to?: string
-    direction?: 'b' | 'f'
     limit?: string
     filter?: EventsFilter
 }
@@ -87,7 +87,7 @@ export class Matrix {
             roomId,
             from,
             to,
-            direction = 'b',
+            direction,
             limit = '100',
             filter = {},
         }: LoadEventsParams,
@@ -139,6 +139,15 @@ export class Matrix {
         )
     }
 
+    loadEventsSince(roomId: string, eventId: string): Observable<RoomMessagesResponse> {
+        return from(this.getEventContext(roomId, eventId))
+            .pipe(mergeMap(it => this.loadEvents({
+                roomId,
+                from: it.start,
+                direction: 'f',
+            })))
+    }
+
     room(roomId: string): RoomSubject {
         return new RoomSubject(roomId, this)
     }
@@ -183,6 +192,7 @@ export class Matrix {
     }
 
     getEventContext(roomId: string, eventId: string) {
+        // todo make return observable
         return this.restClient.getEventContext(roomId, eventId)
     }
 }

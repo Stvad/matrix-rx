@@ -132,7 +132,7 @@ export class Matrix {
              */
             reduce((acc, curr) => ({
                 chunk: mergeEvents(acc.chunk, curr.chunk),
-                state: mergeEvents(acc.state, curr.state),
+                state: mergeEvents(acc.state ?? [], curr.state ?? []),
                 start: curr.start,
             })),
             // todo make sure this works with just one chunk
@@ -148,8 +148,8 @@ export class Matrix {
             })))
     }
 
-    room(roomId: string): RoomSubject {
-        return new RoomSubject(roomId, this)
+    room(roomId: string, sinceEventId?: string): RoomSubject {
+        return new RoomSubject({id : roomId, matrix : this, sinceEventId})
     }
 
     roomList(): Observable<RoomHierarchyData[]> {

@@ -294,7 +294,7 @@ export interface RoomMessagesResponse {
 	start: string
 	end?: string
 	chunk: MatrixEvent[]
-	state: MatrixEvent[]
+	state?: MatrixEvent[]
 }
 
 export interface StateEventContent {

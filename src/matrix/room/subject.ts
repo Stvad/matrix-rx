@@ -1,18 +1,43 @@
-import {catchError, filter, map, merge, mergeAll, mergeMap, Observable, of, ReplaySubject, scan, share} from 'rxjs'
+import {
+    catchError,
+    filter,
+    map,
+    merge,
+    mergeAll,
+    mergeMap,
+    Observable,
+    of,
+    ReplaySubject,
+    scan,
+    share,
+    switchMap,
+} from 'rxjs'
 import {AugmentedRoomData, createAugmentedRoom, InternalAugmentedRoom, InternalRoomData, mergeRoom} from './index'
 import {Omnibus} from 'omnibus-rxjs'
-import {Matrix} from '../index'
+import {LoadEventsParams, Matrix} from '../index'
 import {Subscription} from 'rxjs/internal/Subscription'
 import {AggregatedEvent, EventSubject, getEventsWithRelationships, getRootEvents, RawEvent} from '../event'
 import {MatrixEvent, RoomMessagesResponse} from '../types/Api'
 
 export interface ControlEvent {
-    type: 'loadEventFromPast'
+    type: 'loadEventFromPast' | 'load-events'
 
     [key: string]: any
 }
 
+export interface LoadEventsControlEvent extends ControlEvent, LoadEventsParams {
+    type: 'load-events',
+}
+
 type AugmentedRoomWithNoMessages = Omit<AugmentedRoomData, 'messages'>
+
+interface RoomSubjectParams {
+    id: string
+    matrix: Matrix
+    sinceEventId?: string
+    eventBus?: Omnibus<RawEvent | AggregatedEvent>
+    controlBus?: Omnibus<ControlEvent>
+}
 
 /**
  * Can potentially be BehaviorSubject if I do any kind of local caching
@@ -22,21 +47,48 @@ export class RoomSubject extends ReplaySubject<AugmentedRoomData> {
      * kind of unhappy with having to have this, is there a better way?
      * rn it's used to dedup event observables creation for the room
      */
-    private observableRegistry = new Map<string, EventSubject>()
-    private _observable: Observable<AugmentedRoomWithNoMessages>
+    private readonly observableRegistry = new Map<string, EventSubject>()
+    private readonly _observable: Observable<AugmentedRoomWithNoMessages>
 
     private subscription: Subscription | undefined
 
+    public readonly id: string
+
+    private readonly matrix: Matrix
+
+    /** should event bus and control bus be the same thing? */
+    private readonly eventBus: Omnibus<RawEvent | AggregatedEvent> = new Omnibus()
+    // can probably be replaced with a subject
+    private readonly controlBus: Omnibus<ControlEvent> = new Omnibus()
+
     constructor(
-        public roomId: string,
-        private matrix: Matrix,
-        /** should event bus and control bus be the same thing? */
-        private eventBus: Omnibus<RawEvent | AggregatedEvent> = new Omnibus(),
-        // can probably be replaced with a subject
-        private controlBus: Omnibus<ControlEvent> = new Omnibus(),
+        {
+            id,
+            matrix,
+            sinceEventId,
+            eventBus = new Omnibus(),
+            controlBus = new Omnibus(),
+        }: RoomSubjectParams,
     ) {
         super(1)
-        this._observable = this.syncRoomOrEventsFromPagination().pipe(share())
+        this.id = id
+        this.matrix = matrix
+        this.eventBus = eventBus
+        this.controlBus = controlBus
+
+        this._observable = this.createObservable(sinceEventId)
+    }
+
+    private createObservable(sinceEventId?: string) {
+        const eventsSince = sinceEventId ? [this.matrix.loadEventsSince(this.id, sinceEventId).pipe(map(asRoomPartial))] : []
+
+        return this.roomObservableFromSources(
+            this.roomFromSync(),
+            [
+                this.onLoadPastEventsRequest(),
+                ...eventsSince,
+            ])
+            .pipe(share())
     }
 
     override subscribe(...args: any[]): Subscription {
@@ -47,7 +99,7 @@ export class RoomSubject extends ReplaySubject<AugmentedRoomData> {
          *
          */
         if (!this.subscription) {
-            this.subscription = this.createObservable().subscribe(this)
+            this.subscription = this.roomStateObservable().subscribe(this)
         }
 
         return super.subscribe(...args)
@@ -63,11 +115,21 @@ export class RoomSubject extends ReplaySubject<AugmentedRoomData> {
     // todo did pagination start taking longer?
     public loadOlderEvents(from: string, to?: string) {
         // todo meaningful only with active subscription, enforce?
+        // or would be even better if I could enforce that structurally (e.g.) you can only call this on a
+        // subscription returned from subject
 
-        this.controlBus.trigger({type: 'loadEventFromPast', roomId: this.roomId, from, to})
+        this.controlBus.trigger({type: 'loadEventFromPast', roomId: this.id, from, to})
     }
 
     public watchEvents(): Observable<EventSubject> {
+        /**
+         * I'm not happy how this is a separate observable even though it's relying and dependent on the room data
+         * or like it's the same observable but subscription management is confusing
+         */
+        /**
+         * todo this also rn only emits top level events, but not relations (e.g. reactions)
+         * bc of how underlying observer partitions them
+         */
         return this._observable.pipe(map(it => it.events), mergeAll())
     }
 
@@ -75,7 +137,7 @@ export class RoomSubject extends ReplaySubject<AugmentedRoomData> {
         return this.watchEvents().pipe(mergeAll())
     }
 
-    private createObservable(): Observable<AugmentedRoomData> {
+    private roomStateObservable(): Observable<AugmentedRoomData> {
         /**
          * todo: I need to do the event merging before deriving the room state
          * otherwise state updates like room rename, etc won't be taken into account
@@ -91,7 +153,7 @@ export class RoomSubject extends ReplaySubject<AugmentedRoomData> {
             }),
             map((it: AugmentedRoomWithNoMessages) => ({
                 ...it,
-                messages: it.events!.filter(it => it.value.type === 'm.room.message'),
+                messages: it.events.filter(it => it.value.type === 'm.room.message'),
             })),
 
             catchError(error => {
@@ -101,18 +163,28 @@ export class RoomSubject extends ReplaySubject<AugmentedRoomData> {
         )
     }
 
-    private syncRoomOrEventsFromPagination() {
-        return merge(this.roomFromSync(), this.onLoadEventsRequest()).pipe(
-            // todo this type conversion is a lie for rooms from onLoadEventsRequest
+    private roomObservableFromSources(
+        sync: Observable<InternalAugmentedRoom>,
+        eventSources: Observable<Pick<InternalAugmentedRoom, '_rawEvents' | 'gaps'>>[],
+    ) {
+        // delay eventSources subscriptions until sync has emitted at least once
+        const sharedSync = sync.pipe(share())
+        const delayedEventSources = eventSources.map(it => sharedSync.pipe(switchMap(() => it)))
+
+        // todo bc the sync event arrives first we'll have duplicate with "since" events
+        // Need to dedup that or initialize 'since' after sync returns
+
+        return merge(sharedSync, ...delayedEventSources).pipe(
+            // todo this type conversion is a lie for rooms from onLoadPastEventsRequest
             // may want to make it more like a fake room
             map(it => this.transformAndEmitEvents(it) as AugmentedRoomWithNoMessages))
     }
 
     private roomFromSync() {
-        return this.matrix.sync(this.roomId).pipe(
+        return this.matrix.sync(this.id).pipe(
             map(it => it.rooms?.join ?? {}),
-            filter(it => !!it[this.roomId]),
-            map(it => createAugmentedRoom(this.roomId, it[this.roomId])),
+            filter(it => !!it[this.id]),
+            map(it => createAugmentedRoom(this.id, it[this.id])),
         )
     }
 
@@ -171,26 +243,36 @@ export class RoomSubject extends ReplaySubject<AugmentedRoomData> {
     }
 
     private onLoadEventsRequest(): Observable<Pick<InternalAugmentedRoom, '_rawEvents' | 'gaps'>> {
-        const asRoomPartial = (it: RoomMessagesResponse) => ({
-            _rawEvents: it.chunk,
-            gaps: {
-                back: it.end ? {
-                    token: it.end,
-                    timestamp: it.chunk[0].origin_server_ts,
-                } : undefined,
-            },
-        })
 
+        const loadEventBatch = (ev: LoadEventsControlEvent) => this.matrix.loadEventBatch(ev).pipe(map(asRoomPartial))
+
+        return this.controlBus
+            .query((it => it.type === 'load-events'))
+            .pipe(mergeMap(it => loadEventBatch(it as LoadEventsControlEvent)))
+
+    }
+
+    private onLoadPastEventsRequest(): Observable<Pick<InternalAugmentedRoom, '_rawEvents' | 'gaps'>> {
         const loadEventBatch = (it: ControlEvent) =>
             this.matrix.loadEventBatch({
-                roomId: this.roomId,
+                roomId: this.id,
                 from: it.from,
                 to: it.to,
                 direction: 'b',
             }).pipe(map(asRoomPartial))
 
         return this.controlBus
-            .query((it => it.type === 'loadEventFromPast' && it.roomId === this.roomId))
+            .query((it => it.type === 'loadEventFromPast' && it.roomId === this.id))
             .pipe(mergeMap(loadEventBatch))
     }
 }
+
+const asRoomPartial = (it: RoomMessagesResponse) => ({
+    _rawEvents: it.chunk,
+    gaps: {
+        back: it.end ? {
+            token: it.end,
+            timestamp: it.chunk[0].origin_server_ts,
+        } : undefined,
+    },
+})

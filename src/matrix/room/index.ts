@@ -22,10 +22,12 @@ export interface InternalRoomData {
 export interface InternalAugmentedRoom extends RoomData, CommonRoomAugmentations, InternalRoomData {
 }
 
+export interface HasEvents {
+    events: EventSubject[]
+}
 
 // output of full room pipeline
-export interface AugmentedRoomData extends RoomData, CommonRoomAugmentations {
-    events: EventSubject[]
+export interface AugmentedRoomData extends RoomData, CommonRoomAugmentations, HasEvents {
     messages: EventSubject[]
 }
 
@@ -132,7 +134,7 @@ const fieldMergers = {
         [...x._rawEvents, ...(y?._rawEvents ?? [])].sort((a, b) => a.origin_server_ts - b.origin_server_ts),
 }
 
-export const mergeRoom = <T extends CommonRoomAugmentations, N extends CommonRoomAugmentations>(
+export const mergeRoom = <T extends CommonRoomAugmentations, N extends Partial<CommonRoomAugmentations>>(
     aggregate: T,
     newData: N,
     fieldMerger: { [id: string]: any } = {events: fieldMergers.events},

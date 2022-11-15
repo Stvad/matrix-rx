@@ -1,10 +1,6 @@
-import {MatrixEvent, MessageEventType, ReplaceEvent} from './types/Api'
+import {MatrixEvent, ReplaceEvent} from './types/Api'
 import {BehaviorSubject, map, Observable, scan, Subscription, tap} from 'rxjs'
 import {Omnibus} from 'omnibus-rxjs'
-
-const hasRelationships = (event: MatrixEvent) => event.content['m.relates_to']
-export const getEventsWithRelationships = (events: MatrixEvent[]) => events.filter(hasRelationships)
-export const getRootEvents = (events: MatrixEvent[]) => events.filter(it => !hasRelationships(it))
 
 export function isThreadChildOf(threaded: MatrixEvent, root: MatrixEvent) {
     const threadTypes = ['m.thread']

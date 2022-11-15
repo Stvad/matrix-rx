@@ -11,12 +11,20 @@ import {
     scan,
     share,
     switchMap,
+    tap,
 } from 'rxjs'
-import {AugmentedRoomData, createAugmentedRoom, InternalAugmentedRoom, InternalRoomData, mergeRoom} from './index'
+import {
+    AugmentedRoomData,
+    createAugmentedRoom,
+    HasEvents,
+    InternalAugmentedRoom,
+    InternalRoomData,
+    mergeRoom,
+} from './index'
 import {Omnibus} from 'omnibus-rxjs'
 import {LoadEventsParams, Matrix} from '../index'
 import {Subscription} from 'rxjs/internal/Subscription'
-import {AggregatedEvent, EventSubject, getEventsWithRelationships, getRootEvents, RawEvent} from '../event'
+import {AggregatedEvent, EventSubject, RawEvent} from '../event'
 import {MatrixEvent, RoomMessagesResponse} from '../types/Api'
 
 export interface ControlEvent {
@@ -39,6 +47,10 @@ interface RoomSubjectParams {
     controlBus?: Omnibus<ControlEvent>
 }
 
+type IntermediateObservableRoom =
+    AugmentedRoomWithNoMessages
+    | Pick<InternalAugmentedRoom, '_rawEvents' | 'gaps'> & HasEvents
+
 /**
  * Can potentially be BehaviorSubject if I do any kind of local caching
  */
@@ -48,7 +60,7 @@ export class RoomSubject extends ReplaySubject<AugmentedRoomData> {
      * rn it's used to dedup event observables creation for the room
      */
     private readonly observableRegistry = new Map<string, EventSubject>()
-    private readonly _observable: Observable<AugmentedRoomWithNoMessages>
+    private readonly _observable: Observable<IntermediateObservableRoom>
 
     private subscription: Subscription | undefined
 
@@ -145,11 +157,16 @@ export class RoomSubject extends ReplaySubject<AugmentedRoomData> {
          * (e.g. new name event comes in and I can derive new name, overriding the old one on merge)
          */
 
+        const pickTopLevelEvents = (it: IntermediateObservableRoom) => ({...it, events: getRootEvents(it.events)})
+
         return this._observable.pipe(
-            scan((acc: AugmentedRoomWithNoMessages, curr) => {
+            map(pickTopLevelEvents),
+            // @ts-ignore todo, I'm confused why this does not type resolve
+            // Conversion is valid as we ensure that scan event is always first
+            scan((acc: IntermediateObservableRoom, curr: IntermediateObservableRoom): AugmentedRoomWithNoMessages => {
                 // Don't do new data synthesis in scan, bc then new data is only available on the second+ batch of events
                 // Merge should happen after initial event transformation
-                return mergeRoom(acc, curr)
+                return mergeRoom(acc as AugmentedRoomWithNoMessages, curr) as AugmentedRoomWithNoMessages
             }),
             map((it: AugmentedRoomWithNoMessages) => ({
                 ...it,
@@ -166,7 +183,7 @@ export class RoomSubject extends ReplaySubject<AugmentedRoomData> {
     private roomObservableFromSources(
         sync: Observable<InternalAugmentedRoom>,
         eventSources: Observable<Pick<InternalAugmentedRoom, '_rawEvents' | 'gaps'>>[],
-    ) {
+    ): Observable<IntermediateObservableRoom> {
         // delay eventSources subscriptions until sync has emitted at least once
         const sharedSync = sync.pipe(share())
         const delayedEventSources = eventSources.map(it => sharedSync.pipe(switchMap(() => it)))
@@ -175,9 +192,9 @@ export class RoomSubject extends ReplaySubject<AugmentedRoomData> {
         // Need to dedup that or initialize 'since' after sync returns
 
         return merge(sharedSync, ...delayedEventSources).pipe(
-            // todo this type conversion is a lie for rooms from onLoadPastEventsRequest
-            // may want to make it more like a fake room
-            map(it => this.transformAndEmitEvents(it) as AugmentedRoomWithNoMessages))
+            map(it => this.createAndRegisterEventSubjects(it)),
+            tap(it => this.emitEvents(it._rawEvents)),
+        )
     }
 
     private roomFromSync() {
@@ -188,26 +205,27 @@ export class RoomSubject extends ReplaySubject<AugmentedRoomData> {
         )
     }
 
-    private transformAndEmitEvents<T extends InternalRoomData>(room: T) {
+    private createAndRegisterEventSubjects<T extends InternalRoomData>(room: T) {
         if (!room?._rawEvents) throw new Error('no events in room data')
 
-        const rootEventsObservables = getRootEvents(room._rawEvents).map(it => this.createEventSubject(it))
-        this.addToRegistry(rootEventsObservables)
+        const events = room._rawEvents.map(it => this.createEventSubject(it))
+        this.addToRegistry(events)
 
-        const eventsWithRelationshipsObservable =
-            getEventsWithRelationships(room._rawEvents).map(it => this.createEventSubject(it))
-        this.addToRegistry(eventsWithRelationshipsObservable)
-
-        this.emitEvents(room)
+        return {
+            events: events,
+            ...room,
+        }
 
         /**
+         * todo: this is probably outdated
+         *
          * right now second+ order relations are dropped
          * (e.g. edit a message in a thread)
          * bc. there is no listener for it either on top or "relates to" level
          *
          * should I create those observables for all events, and then retrieve them by id when needed?
          * - this is probably ok, maybe avoiding some obviously "leaf" events
-         * - for server supported relations - it seems that the server will include some relations inthe root event
+         * - for server supported relations - it seems that the server will include some relations in the root event
          *   - not clear if it's part of the spec/will there be all events/etc
          *   - also probably prevents from supporting custom relations?
          *   - see https://spec.matrix.org/v1.3/client-server-api/#aggregations
@@ -216,19 +234,14 @@ export class RoomSubject extends ReplaySubject<AugmentedRoomData> {
          * other option is to re-emit events that were not consumed by anyone, but that probably would go bad places
          *
          */
-
-        return {
-            ...room,
-            events: rootEventsObservables,
-        }
     }
 
     private createEventSubject(it: MatrixEvent) {
         return new EventSubject(it, this.eventBus, this.observableRegistry)
     }
 
-    private emitEvents(it: InternalRoomData) {
-        it._rawEvents?.forEach(it => this.eventBus.trigger({...it, kind: 'raw-event'}))
+    private emitEvents(events: MatrixEvent[]) {
+        events?.forEach(it => this.eventBus.trigger({...it, kind: 'raw-event'}))
     }
 
     private addToRegistry(eventSubjects: EventSubject[]) {
@@ -276,3 +289,6 @@ const asRoomPartial = (it: RoomMessagesResponse) => ({
         } : undefined,
     },
 })
+
+const getRootEvents = (events: EventSubject[]) => events.filter(it => !hasRelationships(it))
+const hasRelationships = (event: EventSubject) => event.value.content['m.relates_to']

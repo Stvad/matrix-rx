@@ -1,16 +1,17 @@
 import {useLexicalComposerContext} from '@lexical/react/LexicalComposerContext'
-import {useCallback, useEffect, useMemo, useRef, useState} from 'react'
+import {ChangeEvent, ChangeEventHandler, RefObject, useCallback, useEffect, useMemo, useRef, useState} from 'react'
 import {
     SELECTION_CHANGE_COMMAND,
     FORMAT_TEXT_COMMAND,
     $getSelection,
     $isRangeSelection,
     $createParagraphNode,
-    $getNodeByKey,
+    $getNodeByKey, LexicalEditor, RangeSelection,
 } from 'lexical'
 import {$isLinkNode, TOGGLE_LINK_COMMAND} from '@lexical/link'
 import {
     $isParentElementRTL,
+    // @ts-ignore wtf
     $wrapLeafNodesInElements,
     $isAtNodeEnd,
 } from '@lexical/selection'
@@ -64,7 +65,7 @@ function Divider() {
     return <div className="divider"/>
 }
 
-function positionEditorElement(editor, rect) {
+function positionEditorElement(editor: HTMLElement, rect: DOMRect | null) {
     if (rect === null) {
         editor.style.opacity = '0'
         editor.style.top = '-1000px'
@@ -78,13 +79,13 @@ function positionEditorElement(editor, rect) {
     }
 }
 
-function FloatingLinkEditor({editor}) {
+function FloatingLinkEditor({editor}: {editor: LexicalEditor}) {
     const editorRef = useRef(null)
-    const inputRef = useRef(null)
+    const inputRef = useRef<HTMLInputElement>(null)
     const mouseDownRef = useRef(false)
     const [linkUrl, setLinkUrl] = useState('')
     const [isEditMode, setEditMode] = useState(false)
-    const [lastSelection, setLastSelection] = useState(null)
+    const [lastSelection, setLastSelection] = useState<ReturnType<typeof $getSelection>>(null)
 
     const updateLinkEditor = useCallback(() => {
         const selection = $getSelection()
@@ -110,6 +111,7 @@ function FloatingLinkEditor({editor}) {
         const rootElement = editor.getRootElement()
         if (
             selection !== null &&
+            nativeSelection !== null &&
             !nativeSelection.isCollapsed &&
             rootElement !== null &&
             rootElement.contains(nativeSelection.anchorNode)
@@ -117,7 +119,7 @@ function FloatingLinkEditor({editor}) {
             const domRange = nativeSelection.getRangeAt(0)
             let rect
             if (nativeSelection.anchorNode === rootElement) {
-                let inner = rootElement
+                let inner: Element = rootElement
                 while (inner.firstElementChild != null) {
                     inner = inner.firstElementChild
                 }
@@ -218,7 +220,14 @@ function FloatingLinkEditor({editor}) {
     )
 }
 
-function Select({onChange, className, options, value}) {
+interface SelectProps{
+    value: string
+    onChange: ChangeEventHandler<HTMLSelectElement>
+    className: string
+    options: string[]
+}
+
+function Select({onChange, className, options, value}: SelectProps) {
     return (
         <select className={className} onChange={onChange} value={value}>
             <option hidden={true} value=""/>
@@ -231,8 +240,8 @@ function Select({onChange, className, options, value}) {
     )
 }
 
-function getSelectedNode(selection) {
-    const anchor = selection.anchor
+function getSelectedNode(selection: RangeSelection) {
+    const anchor = selection!.anchor
     const focus = selection.focus
     const anchorNode = selection.anchor.getNode()
     const focusNode = selection.focus.getNode()
@@ -247,13 +256,20 @@ function getSelectedNode(selection) {
     }
 }
 
+interface BlockOptionsDropdownListProps {
+    editor: LexicalEditor
+    blockType: keyof typeof blockTypeToBlockName
+    toolbarRef: RefObject<HTMLDivElement>
+    setShowBlockOptionsDropDown: (show: boolean) => void
+}
+
 function BlockOptionsDropdownList({
                                       editor,
                                       blockType,
                                       toolbarRef,
                                       setShowBlockOptionsDropDown,
-                                  }) {
-    const dropDownRef = useRef(null)
+                                  }: BlockOptionsDropdownListProps) {
+    const dropDownRef = useRef<HTMLDivElement>(null)
 
     useEffect(() => {
         const toolbar = toolbarRef.current
@@ -271,10 +287,10 @@ function BlockOptionsDropdownList({
         const toolbar = toolbarRef.current
 
         if (dropDown !== null && toolbar !== null) {
-            const handle = (event) => {
+            const handle = (event: Event) => {
                 const target = event.target
 
-                if (!dropDown.contains(target) && !toolbar.contains(target)) {
+                if (!dropDown.contains(target as Node) && !toolbar.contains(target as Node)) {
                     setShowBlockOptionsDropDown(false)
                 }
             }
@@ -327,18 +343,18 @@ function BlockOptionsDropdownList({
 
     const formatBulletList = () => {
         if (blockType !== 'ul') {
-            editor.dispatchCommand(INSERT_UNORDERED_LIST_COMMAND)
+            editor.dispatchCommand(INSERT_UNORDERED_LIST_COMMAND, undefined)
         } else {
-            editor.dispatchCommand(REMOVE_LIST_COMMAND)
+            editor.dispatchCommand(REMOVE_LIST_COMMAND, undefined)
         }
         setShowBlockOptionsDropDown(false)
     }
 
     const formatNumberedList = () => {
         if (blockType !== 'ol') {
-            editor.dispatchCommand(INSERT_ORDERED_LIST_COMMAND)
+            editor.dispatchCommand(INSERT_ORDERED_LIST_COMMAND, undefined)
         } else {
-            editor.dispatchCommand(REMOVE_LIST_COMMAND)
+            editor.dispatchCommand(REMOVE_LIST_COMMAND, undefined)
         }
         setShowBlockOptionsDropDown(false)
     }
@@ -413,8 +429,8 @@ function BlockOptionsDropdownList({
 export default function ToolbarPlugin() {
     const [editor] = useLexicalComposerContext()
     const toolbarRef = useRef(null)
-    const [blockType, setBlockType] = useState('paragraph')
-    const [selectedElementKey, setSelectedElementKey] = useState(null)
+    const [blockType, setBlockType] = useState<keyof typeof blockTypeToBlockName>('paragraph')
+    const [selectedElementKey, setSelectedElementKey] = useState<string| null>(null)
     const [showBlockOptionsDropDown, setShowBlockOptionsDropDown] = useState(
         false,
     )
@@ -447,7 +463,7 @@ export default function ToolbarPlugin() {
                     const type = $isHeadingNode(element)
                         ? element.getTag()
                         : element.getType()
-                    setBlockType(type)
+                    setBlockType(type as keyof typeof blockTypeToBlockName)
                     if ($isCodeNode(element)) {
                         setCodeLanguage(element.getLanguage() || getDefaultCodeLanguage())
                     }
@@ -492,7 +508,7 @@ export default function ToolbarPlugin() {
 
     const codeLanguges = useMemo(() => getCodeLanguages(), [])
     const onCodeLanguageSelect = useCallback(
-        (e) => {
+        (e: ChangeEvent<HTMLSelectElement>) => {
             editor.update(() => {
                 if (selectedElementKey !== null) {
                     const node = $getNodeByKey(selectedElementKey)

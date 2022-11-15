@@ -1,13 +1,42 @@
-import {MatrixEvent, RoomData, RoomNameEvent} from '../types/Api'
-import {AutocompleteConfigurationEvent, AutocompleteSuggestion} from '../extensions/autocomplete'
-import {EventSubject} from '../event'
+import {
+    catchError,
+    filter,
+    map,
+    merge,
+    mergeAll,
+    mergeMap,
+    Observable,
+    of,
+    ReplaySubject,
+    scan,
+    share,
+    switchMap,
+    tap,
+} from 'rxjs'
+import {createAugmentedRoom, mergeRoom} from './utils'
+import {Omnibus} from 'omnibus-rxjs'
+import {LoadEventsParams, Matrix} from '../index'
+import {Subscription} from 'rxjs/internal/Subscription'
+import {AggregatedEvent, EventSubject, RawEvent} from '../event'
+import {MatrixEvent, RoomData, RoomMessagesResponse} from '../types/Api'
+import {AutocompleteSuggestion} from '../extensions/autocomplete'
+
+export interface ControlEvent {
+    type: 'loadEventFromPast' | 'load-events'
+
+    [key: string]: any
+}
+
+export interface LoadEventsControlEvent extends ControlEvent, LoadEventsParams {
+    type: 'load-events',
+}
 
 export interface TimelineGap {
     token: string,
     timestamp: number,
 }
 
-interface CommonRoomAugmentations {
+export interface CommonRoomAugmentations {
     id: string
     name: string
     gaps: { back?: TimelineGap }
@@ -36,153 +65,258 @@ export interface RoomHierarchyData extends RoomData, CommonRoomAugmentations {
     children: RoomHierarchyData[]
 }
 
-function getRoomName(events: MatrixEvent[]) {
-    // todo need special handling for dm's
-    // https://github.com/matrix-org/matrix-js-sdk/issues/637
+type AugmentedRoomWithNoMessages = Omit<AugmentedRoomData, 'messages'>
 
-    // @ts-ignore https://github.com/microsoft/TypeScript/issues/48829
-    const nameEvent = events.findLast(e => e.type === 'm.room.name') as RoomNameEvent | undefined
-    return nameEvent?.content.name ?? 'DM guess: ' + events[0].sender
+interface RoomSubjectParams {
+    id: string
+    matrix: Matrix
+    sinceEventId?: string
+    eventBus?: Omnibus<RawEvent | AggregatedEvent>
+    controlBus?: Omnibus<ControlEvent>
 }
 
-function getAutocompleteSuggestions(events: MatrixEvent[]) {
-    // @ts-ignore https://github.com/microsoft/TypeScript/issues/48829
-    const configEvent = events.findLast(
-        (e: MatrixEvent) => e.type === 'matrix-rx.autocomplete',
-    ) as AutocompleteConfigurationEvent | undefined
-    return configEvent?.content.pages ?? []
-}
+type IntermediateObservableRoom =
+    AugmentedRoomWithNoMessages
+    | Pick<InternalAugmentedRoom, '_rawEvents' | 'gaps'> & HasEvents
 
-const getChildRelationEvents = (loadedRoomEvents: MatrixEvent[]) =>
-    loadedRoomEvents.filter(it => it.type === 'm.space.child')
+/**
+ * Can potentially be BehaviorSubject if I do any kind of local caching
+ */
+export class RoomSubject extends ReplaySubject<AugmentedRoomData> {
+    /**
+     * kind of unhappy with having to have this, is there a better way?
+     * rn it's used to dedup event observables creation for the room
+     */
+    private readonly observableRegistry = new Map<string, EventSubject>()
+    private readonly _observable: Observable<IntermediateObservableRoom>
 
-export function createAugmentedRoom(id: string, room: RoomData): InternalAugmentedRoom {
-    // todo extract members
-    const loadedRoomEvents = [...room.state.events, ...room.timeline.events]
-    return {
-        ...room,
-        id,
-        _rawEvents: loadedRoomEvents,
-        name: getRoomName(loadedRoomEvents),
-        /** todo
-         * the story is more complicated, can have windows of unloaded messages, etc
+    private subscription: Subscription | undefined
+
+    public readonly id: string
+
+    private readonly matrix: Matrix
+
+    /** should event bus and control bus be the same thing? */
+    private readonly eventBus: Omnibus<RawEvent | AggregatedEvent> = new Omnibus()
+    // can probably be replaced with a subject
+    private readonly controlBus: Omnibus<ControlEvent> = new Omnibus()
+
+    constructor(
+        {
+            id,
+            matrix,
+            sinceEventId,
+            eventBus = new Omnibus(),
+            controlBus = new Omnibus(),
+        }: RoomSubjectParams,
+    ) {
+        super(1)
+        this.id = id
+        this.matrix = matrix
+        this.eventBus = eventBus
+        this.controlBus = controlBus
+
+        this._observable = this.createObservable(sinceEventId)
+    }
+
+    private createObservable(sinceEventId?: string) {
+        const eventsSince = sinceEventId ? [this.matrix.loadEventsSince(this.id, sinceEventId).pipe(map(asRoomPartial))] : []
+
+        return this.roomObservableFromSources(
+            this.roomFromSync(),
+            [
+                this.onLoadPastEventsRequest(),
+                ...eventsSince,
+            ])
+            .pipe(share())
+    }
+
+    override subscribe(...args: any[]): Subscription {
+        /**
+         * Subscribe to underlying observable only someone is subscribing to this subject
+         *
+         * does this need to be more complicated (see `share` operator)?
          *
          */
-        gaps: {
-            back: room.timeline.prev_batch && room.timeline.events[0]?.origin_server_ts && {
-                token: room.timeline.prev_batch,
-                timestamp: room.timeline.events[0]?.origin_server_ts,
-            } || undefined,
-        },
-        /**
-         * todo: have the "extensions" be a list of functions that can be applied to the room
-         */
-        autocompleteSuggestions: getAutocompleteSuggestions(loadedRoomEvents),
-    }
-}
+        if (!this.subscription) {
+            this.subscription = this.roomStateObservable().subscribe(this)
+        }
 
-export const extractRoomsInfo = (rooms: { [id: string]: RoomData }): { [id: string]: InternalAugmentedRoom } =>
-    Object.fromEntries(Object.keys(rooms)
-        .map(it => [it, createAugmentedRoom(it, rooms[it])]))
-
-export function mergeNestedRooms(acc: { [id: string]: InternalAugmentedRoom }, curr: { [id: string]: InternalAugmentedRoom }) {
-    const mergedKeys = new Set([...Object.keys(curr), ...Object.keys(acc)])
-
-    const mergeNestedRoom = (id: string) =>
-        mergeRoom(acc[id], curr[id] || {}, {_rawEvents: fieldMergers._rawEvents})
-
-    return Object.fromEntries([...mergedKeys].map(it =>
-        [it, acc[it] ? mergeNestedRoom(it) : curr[it]]))
-}
-
-export const buildRoomHierarchy = (rooms: { [id: string]: InternalAugmentedRoom }): RoomHierarchyData[] => {
-    const hasParent = new Set<string>()
-    const idToChildren = new Map<string, string[]>()
-
-    Object.entries(rooms).forEach(([id, room]) => {
-        const childrenEvents = getChildRelationEvents(room._rawEvents)
-        // todo extract and handle room order
-        const childrenIds = childrenEvents.filter(it => rooms[it.state_key!]).map(it => it.state_key!)
-        childrenIds.forEach(it => hasParent.add(it))
-
-        idToChildren.set(id, childrenIds)
-    })
-
-    function constructHierarchyMap() {
-        // Type conversion is a hack here, figure out a better way.
-        // Need to explicitly modify the "children" vs creating a new object bc
-        // rooms need to maintain references to each other
-
-        const roomHierarchies = new Map<string, RoomHierarchyData>(Object.entries(rooms) as unknown as [string, RoomHierarchyData][])
-        roomHierarchies.forEach((room, id) => {
-            room.children = idToChildren.get(id)?.map(it => roomHierarchies.get(it)!) ?? []
-        })
-        return roomHierarchies
+        return super.subscribe(...args)
     }
 
-    const roomHierarchies = constructHierarchyMap()
-    return [...roomHierarchies.values()].filter(it => !hasParent.has(it.id))
-}
-
-const fieldMergers = {
-    // todo performance wise - should be able to just do merge part of merge sort instead of full sort
-    // todo dedup, though maybe even at an earlier stage (observable creation)
-
-    events: (x: { events: EventSubject[] }, y: { events: EventSubject[] }) =>
-        [...x.events, ...(y?.events ?? [])].sort((a, b) => a.value.origin_server_ts - b.value.origin_server_ts),
-    _rawEvents: (x: { _rawEvents: MatrixEvent[] }, y: { _rawEvents: MatrixEvent[] }) =>
-        [...x._rawEvents, ...(y?._rawEvents ?? [])].sort((a, b) => a.origin_server_ts - b.origin_server_ts),
-}
-
-export const mergeRoom = <T extends CommonRoomAugmentations, N extends Partial<CommonRoomAugmentations>>(
-    aggregate: T,
-    newData: N,
-    fieldMerger: { [id: string]: any } = {events: fieldMergers.events},
-): T => {
-    const mergedFields = Object.fromEntries(
-        Object.keys(fieldMerger)
-            .map(it => [it,
-                fieldMerger[it](aggregate, newData)]))
-
-    const allKeys = Object.keys(newData) as (keyof N)[]
-    const nonEmptyKeys = allKeys.filter(it => !isEmpty(newData[it]))
-    const newFields = Object.fromEntries(nonEmptyKeys.map(it => [it, newData[it]]))
 
     /**
-     * todo
-     * this function is a mess type wise, probably better off separating the hierarchy and Augment room use-cases
-     * though I hope to arrive at solution that brings them closer together
+     * todo: if user calls this a few times in a quick succession, it'll load the same events multiple times
+     * I should probably configure the observable to ignore duplicate requests. presumably the params will remain the same
      *
-     *
-     * also
-     * This still has more issues.
-     * The nested event lists (state, timeline) are not merged & overridden with latest data (which is usually empty)
-     * I don't really care for state & timeline as they are lifted into `events`
-     * - but we should clearly indicate that that is not a part of the aggregate (e.g. by removing it from the type)
-     *
-     * Account_data is tbd
+     * I also keep wondering if I should do dedup inside pipeline, but that seems like a wrong solution
      */
+    // todo did pagination start taking longer?
+    public loadOlderEvents(from: string, to?: string) {
+        // todo meaningful only with active subscription, enforce?
+        // or would be even better if I could enforce that structurally (e.g.) you can only call this on a
+        // subscription returned from subject
 
-    return {
-        ...aggregate,
-        ...newFields,
-        ...mergedFields,
-        gaps: {
-            /**
-             * We want to have the token associated with the oldest message (retrieved on first sync or on back pagination)
-             */
-            back: mergeGapBack(aggregate.gaps.back!, newData?.gaps?.back),
-        },
+        this.controlBus.trigger({type: 'loadEventFromPast', roomId: this.id, from, to})
+    }
+
+    public watchEvents(): Observable<EventSubject> {
+        /**
+         * I'm not happy how this is a separate observable even though it's relying and dependent on the room data
+         * or like it's the same observable but subscription management is confusing
+         */
+        /**
+         * todo this also rn only emits top level events, but not relations (e.g. reactions)
+         * bc of how underlying observer partitions them
+         */
+        return this._observable.pipe(map(it => it.events), mergeAll())
+    }
+
+    public watchEventValues(): Observable<AggregatedEvent> {
+        return this.watchEvents().pipe(mergeAll())
+    }
+
+    private roomStateObservable(): Observable<AugmentedRoomData> {
+        /**
+         * todo: I need to do the event merging before deriving the room state
+         * otherwise state updates like room rename, etc won't be taken into account
+         * or do derivation from arriving partial and then merge the results
+         * (e.g. new name event comes in and I can derive new name, overriding the old one on merge)
+         */
+
+        const pickTopLevelEvents = (it: IntermediateObservableRoom) => ({...it, events: getRootEvents(it.events)})
+
+        return this._observable.pipe(
+            map(pickTopLevelEvents),
+            // @ts-ignore todo, I'm confused why this does not type resolve
+            // Conversion is valid as we ensure that scan event is always first
+            scan((acc: IntermediateObservableRoom, curr: IntermediateObservableRoom): AugmentedRoomWithNoMessages => {
+                // Don't do new data synthesis in scan, bc then new data is only available on the second+ batch of events
+                // Merge should happen after initial event transformation
+                return mergeRoom(acc as AugmentedRoomWithNoMessages, curr) as AugmentedRoomWithNoMessages
+            }),
+            map((it: AugmentedRoomWithNoMessages) => ({
+                ...it,
+                messages: it.events.filter(it => it.value.type === 'm.room.message'),
+            })),
+
+            catchError(error => {
+                console.log('roomsubject error: ', error)
+                return of(error)
+            }),
+        )
+    }
+
+    private roomObservableFromSources(
+        sync: Observable<InternalAugmentedRoom>,
+        eventSources: Observable<Pick<InternalAugmentedRoom, '_rawEvents' | 'gaps'>>[],
+    ): Observable<IntermediateObservableRoom> {
+        // delay eventSources subscriptions until sync has emitted at least once
+        const sharedSync = sync.pipe(share())
+        const delayedEventSources = eventSources.map(it => sharedSync.pipe(switchMap(() => it)))
+
+        // todo bc the sync event arrives first we'll have duplicate with "since" events
+        // Need to dedup that or initialize 'since' after sync returns
+
+        return merge(sharedSync, ...delayedEventSources).pipe(
+            map(it => this.createAndRegisterEventSubjects(it)),
+            tap(it => this.emitEvents(it._rawEvents)),
+        )
+    }
+
+    private roomFromSync() {
+        return this.matrix.sync(this.id).pipe(
+            map(it => it.rooms?.join ?? {}),
+            filter(it => !!it[this.id]),
+            map(it => createAugmentedRoom(this.id, it[this.id])),
+        )
+    }
+
+    private createAndRegisterEventSubjects<T extends InternalRoomData>(room: T) {
+        if (!room?._rawEvents) throw new Error('no events in room data')
+
+        const events = room._rawEvents.map(it => this.createEventSubject(it))
+        this.addToRegistry(events)
+
+        return {
+            events: events,
+            ...room,
+        }
+
+        /**
+         * todo: this is probably outdated
+         *
+         * right now second+ order relations are dropped
+         * (e.g. edit a message in a thread)
+         * bc. there is no listener for it either on top or "relates to" level
+         *
+         * should I create those observables for all events, and then retrieve them by id when needed?
+         * - this is probably ok, maybe avoiding some obviously "leaf" events
+         * - for server supported relations - it seems that the server will include some relations in the root event
+         *   - not clear if it's part of the spec/will there be all events/etc
+         *   - also probably prevents from supporting custom relations?
+         *   - see https://spec.matrix.org/v1.3/client-server-api/#aggregations
+         *     - it seems for threads it'd include just the latest event, which is not very useful
+         *     - for reactions it'd include all reactions, which can be used to assemble the event faster
+         * other option is to re-emit events that were not consumed by anyone, but that probably would go bad places
+         *
+         */
+    }
+
+    private createEventSubject(it: MatrixEvent) {
+        return new EventSubject(it, this.eventBus, this.observableRegistry)
+    }
+
+    private emitEvents(events: MatrixEvent[]) {
+        events?.forEach(it => this.eventBus.trigger({...it, kind: 'raw-event'}))
+    }
+
+    private addToRegistry(eventSubjects: EventSubject[]) {
+        eventSubjects.forEach(it => {
+            if (this.observableRegistry.has(it.value.event_id)) { // tracing those duplicates
+                // todo
+                console.debug('already have event in registry', it.value.event_id)
+                return
+            }
+            this.observableRegistry.set(it.value.event_id, it)
+        })
+    }
+
+    private onLoadEventsRequest(): Observable<Pick<InternalAugmentedRoom, '_rawEvents' | 'gaps'>> {
+
+        const loadEventBatch = (ev: LoadEventsControlEvent) => this.matrix.loadEventBatch(ev).pipe(map(asRoomPartial))
+
+        return this.controlBus
+            .query((it => it.type === 'load-events'))
+            .pipe(mergeMap(it => loadEventBatch(it as LoadEventsControlEvent)))
+
+    }
+
+    private onLoadPastEventsRequest(): Observable<Pick<InternalAugmentedRoom, '_rawEvents' | 'gaps'>> {
+        const loadEventBatch = (it: ControlEvent) =>
+            this.matrix.loadEventBatch({
+                roomId: this.id,
+                from: it.from,
+                to: it.to,
+                direction: 'b',
+            }).pipe(map(asRoomPartial))
+
+        return this.controlBus
+            .query((it => it.type === 'loadEventFromPast' && it.roomId === this.id))
+            .pipe(mergeMap(loadEventBatch))
     }
 }
 
-const mergeGapBack = (aggregate: TimelineGap, newData: TimelineGap | undefined) => {
-    if (newData && newData.timestamp < aggregate.timestamp) {
-        return newData
-    }
-    return aggregate
-}
+const asRoomPartial = (it: RoomMessagesResponse) => ({
+    _rawEvents: it.chunk,
+    gaps: {
+        back: it.end ? {
+            token: it.end,
+            timestamp: it.chunk[0].origin_server_ts,
+        } : undefined,
+    },
+})
 
-const isEmpty = (obj: any) => !obj ||
-    obj instanceof Array && obj.length === 0 ||
-    Object.keys(obj).length === 0
+const getRootEvents = (events: EventSubject[]) => events.filter(it => !hasRelationships(it))
+const hasRelationships = (event: EventSubject) => event.value.content['m.relates_to']

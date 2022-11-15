@@ -3,7 +3,7 @@ import {useEffect, useState} from 'react'
 import {useMatrixClient} from './context'
 import {MessageEditor} from './editor/message-editor'
 import {AugmentedRoomData, RoomHierarchyData} from '../matrix/room'
-import {RoomSubject} from '../matrix/room/subject'
+import {RoomSubject} from '../matrix/room'
 import {useLocalStorageState} from '../core/react'
 import {Event} from './event'
 

@@ -1,4 +1,4 @@
-import {catchError, empty, expand, from, map, mergeMap, Observable, of, reduce, scan, shareReplay, tap} from 'rxjs'
+import {catchError, expand, from, map, mergeMap, Observable, of, reduce, scan, shareReplay, tap} from 'rxjs'
 import {ApiClient, PREFIX_REST} from './api/ApiClient'
 import {ajax} from 'rxjs/internal/ajax/ajax'
 import {
@@ -12,8 +12,8 @@ import {
 import {getIncrementalFilter, getInitialFilter} from './sync-filter'
 import RestClient from './api/RestClient'
 import {Credentials} from './types/Credentials'
-import {buildRoomHierarchy, extractRoomsInfo, InternalAugmentedRoom, mergeNestedRooms, RoomHierarchyData} from './room'
-import {RoomSubject} from './room/subject'
+import {buildRoomHierarchy, extractRoomsInfo, mergeNestedRooms} from './room/utils'
+import {RoomHierarchyData, RoomSubject} from './room'
 import {EMPTY} from 'rxjs'
 
 const syncTimeout = 10000

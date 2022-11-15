@@ -1,5 +1,5 @@
 export * from './matrix'
-export * from './matrix/room/subject'
+export * from './matrix/room'
 export * from './matrix/event'
 
 export * from './matrix/types/Api'

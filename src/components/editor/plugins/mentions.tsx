@@ -162,7 +162,7 @@ export function MentionsPlugin({suggestions}: MentionsPluginProps): JSX.Element 
     const [queryString, setQueryString] = useState<string | null>(null)
 
     const results = suggestions.filter(mention =>
-        mention.text?.toLowerCase().includes(queryString?.toLowerCase()))
+        queryString && mention.text?.toLowerCase().includes(queryString.toLowerCase()))
 
     const checkForSlashTriggerMatch = useBasicTypeaheadTriggerMatch('/', {
         minLength: 0,

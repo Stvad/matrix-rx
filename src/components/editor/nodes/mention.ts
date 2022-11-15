@@ -26,6 +26,8 @@ interface LinkAttributes {
     rel?: null | string;
 }
 
+
+// @ts-ignore todo: is there a proper way to extend nodes so types are compatible?
 export class MentionNode extends LinkNode {
     __mention: MentionNodeProps
 

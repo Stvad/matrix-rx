@@ -1,4 +1,4 @@
-import {catchError, expand, from, map, mergeMap, Observable, of, reduce, scan, shareReplay, tap} from 'rxjs'
+import {catchError, EMPTY, expand, from, map, mergeMap, Observable, of, reduce, scan, shareReplay, tap} from 'rxjs'
 import {ApiClient, PREFIX_REST} from './api/ApiClient'
 import {ajax} from 'rxjs/internal/ajax/ajax'
 import {
@@ -14,13 +14,12 @@ import RestClient from './api/RestClient'
 import {Credentials} from './types/Credentials'
 import {buildRoomHierarchy, extractRoomsInfo, mergeNestedRooms} from './room/utils'
 import {RoomHierarchyData, RoomSubject} from './room'
-import {EMPTY} from 'rxjs'
 
 const syncTimeout = 10000
 
 interface LoginParams {
-    userId: any;
-    password: any;
+    userId: string
+    password: string
     server: string
 }
 
@@ -149,7 +148,7 @@ export class Matrix {
     }
 
     room(roomId: string, sinceEventId?: string): RoomSubject {
-        return new RoomSubject({id : roomId, matrix : this, sinceEventId})
+        return new RoomSubject({id: roomId, matrix: this, sinceEventId})
     }
 
     roomList(): Observable<RoomHierarchyData[]> {

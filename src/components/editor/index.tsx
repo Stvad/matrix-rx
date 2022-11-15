@@ -21,6 +21,7 @@ import {OnChangePlugin} from '@lexical/react/LexicalOnChangePlugin'
 import {EditorState, LexicalEditor} from 'lexical'
 import {BubbleUpEditorPlugin} from './plugins/emit-editor'
 import {MentionNode} from './nodes/mention'
+import LexicalErrorBoundary from '@lexical/react/LexicalErrorBoundary'
 
 function Placeholder() {
     return <div className="editor-placeholder">Message...</div>
@@ -68,6 +69,7 @@ export function Editor({onChange, emitEditor, additionalPlugins}: EditorProps) {
                     <RichTextPlugin
                         contentEditable={<ContentEditable className="editor-input"/>}
                         placeholder={<Placeholder/>}
+                        ErrorBoundary={LexicalErrorBoundary}
                     />
                     <HistoryPlugin/>
                     <AutoFocusPlugin/>

@@ -1,6 +1,6 @@
 import {catchError, EMPTY, expand, from, map, mergeMap, Observable, of, reduce, scan, shareReplay, tap} from 'rxjs'
 import {ApiClient, PREFIX_REST} from './api/ApiClient'
-import {ajax} from 'rxjs/internal/ajax/ajax'
+import {ajax, AjaxCreationMethod} from 'rxjs/internal/ajax/ajax'
 import {
     EventsFilter,
     MatrixEvent,
@@ -42,13 +42,14 @@ export class Matrix {
     }
 
     static fromCredentials(creds: Credentials): Matrix {
-        return new Matrix(creds, new RestClient(creds.accessToken, creds.homeServer, PREFIX_REST))
+        return new Matrix(creds)
     }
 
     constructor(
         private credentials: Credentials,
-        private restClient: RestClient,
-        private serverUrl: string = `https://matrix-client.matrix.org`,
+        private restrx: AjaxCreationMethod = ajax,
+        private restClient: RestClient = new RestClient(credentials.accessToken, credentials.homeServer, PREFIX_REST),
+        private baseUrl: string = `https://${credentials.homeServer}${PREFIX_REST}`,
     ) {
     }
 
@@ -70,7 +71,7 @@ export class Matrix {
                 } : {}),
             })
 
-            return ajax.getJSON(`${this.serverUrl}${PREFIX_REST}sync?` + params.toString())
+            return this.restrx.getJSON(`${this.baseUrl}sync?` + params.toString())
         }
         /**
          * todo handle 'gaps' in the timeline
@@ -104,7 +105,7 @@ export class Matrix {
             console.warn('from is empty, are you sure you want to load events from the start of history?')
         }
 
-        return ajax.getJSON<RoomMessagesResponse>(`${this.serverUrl}${PREFIX_REST}rooms/${roomId}/messages?` + params.toString())
+        return this.restrx.getJSON<RoomMessagesResponse>(`${this.baseUrl}rooms/${roomId}/messages?` + params.toString())
             .pipe(tap(it => console.log('load-event-batch-response', it)))
     }
 

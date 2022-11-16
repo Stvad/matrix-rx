@@ -72,6 +72,21 @@ export interface PreviewUrl_ {
 	'og:site_name': string;
 }
 
+export interface UnsignedData {
+    age: number;
+    transaction_id?: string;
+    prev_content?: MessageEventContent;
+    redacted_because?: MatrixEvent;
+    // todo this seems like it may be Qudrix specific thing?
+    membership?: RoomPhase
+	"m.relations"?: {
+	// 	todo
+	}
+	replaces_state?: string;
+	prev_sender?: string;
+}
+
+// Todo the spec has a distinction between ClientEvent and ClientEventWithoutRoomID
 export interface MatrixEvent {
 	event_id: string;
 	content: MessageEventContent;
@@ -79,7 +94,7 @@ export interface MatrixEvent {
 	origin_server_ts: number;
 	sender: string;
 	state_key?: string;
-	unsigned?: { prev_content: MessageEventContent; transaction_id: string; membership: RoomPhase };
+	unsigned?: UnsignedData;
 	redacts?: string;
 	_redacted?: boolean;
 }
@@ -148,6 +163,14 @@ export interface MessageEventContent {
 	is_notepad?: string; // custom field
 	jitsi_started?: boolean; // custom field
 	url_preview?: LinkPreview_; // custom field
+	"m.new_content"?: MessageEventContent;
+	// todo
+	"org.matrix.msc1767.message"?: any[]
+	"org.matrix.msc1767.text"?: string
+
+	// todo a big mess of fields that should be separated by event type
+	join_authorised_via_users_server?: string
+	[other: string]: any;
 }
 
 export interface PusherParam {
@@ -368,9 +391,9 @@ export interface SyncFilter {
 }
 
 export interface RoomSummary {
-	'm.joined_member_count': number;
-	'm.invited_member_count': number;
-	'm.heroes': string[];
+	'm.joined_member_count'?: number;
+	'm.invited_member_count'?: number;
+	'm.heroes'?: string[];
 }
 
 export interface RoomTimeline {
@@ -407,33 +430,46 @@ export interface RoomData {
 	state: {
 		events: MatrixEvent[];
 	};
-	invite_state: {
-		events: MatrixEvent[];
-	};
 	summary: RoomSummary;
 	ephemeral: EphemeralEvent;
 	timeline: RoomTimeline;
 	unread_notifications: {
 		notification_count: number;
+		highlight_count: number;
 	};
+	account_data?: {
+		events: AccountData[];
+	}
+}
+
+export interface InvitedRoomData {
+	// todo actually stripped events
+	invite_state: {
+		events: MatrixEvent[];
+	};
+}
+
+interface AccountData {
+	type: MessageEventType;
+	// todo
+	content: { [id: string]: any };
 }
 
 export interface SyncResponse {
 	next_batch?: string;
 	account_data?: {
-		events: {
-			type: MessageEventType;
-			content: { [id: string]: string[] };
-		}[];
+		events: AccountData[];
 	};
 	rooms?: {
-		invite: { [id: string]: RoomData };
-		join: { [id: string]: RoomData };
-		leave: { [id: string]: RoomData };
+		invite?: { [id: string]: InvitedRoomData };
+		join?: { [id: string]: RoomData };
+		leave?: { [id: string]: RoomData };
 	};
 	presence?: {
 		events: MatrixEvent[];
 	};
+	device_one_time_keys_count?: { [id: string]: number };
+	device_unused_fallback_key_types?: string[];
 }
 
 

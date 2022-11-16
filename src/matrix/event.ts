@@ -97,7 +97,6 @@ export class EventSubject extends BehaviorSubject<AggregatedEvent> {
         }
 
         return this.bus.query(eventOfInterest).pipe(
-            tap(it => console.log(it.event_id === eventId ? 'match on id' : 'match on rel')),
             map(rawToAggregated),
             scan((acc: AggregatedEvent, curr: AggregatedEvent) => {
                 if (acc.event_id === curr.event_id) {

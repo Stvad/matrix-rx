@@ -220,9 +220,20 @@ export class RoomSubject extends ReplaySubject<AugmentedRoomData> {
         // Need to dedup that or initialize 'since' after sync returns
 
         return merge(sharedSync, ...delayedEventSources).pipe(
+            /**
+             * todo I have a suspicion that enforcing deduplication here may be a bad idea (it'd hide problems)
+             */
+            map(it => this.removeDuplicateEvents(it)),
             map(it => this.createAndRegisterEventSubjects(it)),
             tap(it => this.emitEvents(it._rawEvents)),
         )
+    }
+
+    private removeDuplicateEvents<T extends InternalRoomData>(room: T) {
+        return {
+            ...room,
+            _rawEvents: room._rawEvents.filter(it => !this.observableRegistry.has(it.event_id)),
+        }
     }
 
     private roomFromSync() {

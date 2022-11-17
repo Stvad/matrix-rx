@@ -142,6 +142,9 @@ export class Matrix {
     /**
      * todo. this rn includes the "since" event, which is at best questionable
      * "since" implies after. but presumably can have that be a param. probably should filter it out by default 🤔
+     *
+     * ----
+     * this can also be optimized a bit by starting from "end" and reusing the events returned in the context for the result
      */
     loadEventsSince(roomId: string, eventId: string): Observable<RoomMessagesResponse> {
         return from(this.getEventContext(roomId, eventId, {limit: 1}))

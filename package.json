@@ -11,7 +11,7 @@
     "compile": "tsc",
     "watch": "tsc --watch",
     "preview": "vite preview",
-    "check": "tsc --noEmit && vitest",
+    "check": "tsc --noEmit && vitest --run",
     "test": "vitest",
     "coverage": "vitest run --coverage"
   },

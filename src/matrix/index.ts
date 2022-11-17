@@ -139,8 +139,12 @@ export class Matrix {
         )
     }
 
+    /**
+     * todo. this rn includes the "since" event, which is at best questionable
+     * "since" implies after. but presumably can have that be a param. probably should filter it out by default 🤔
+     */
     loadEventsSince(roomId: string, eventId: string): Observable<RoomMessagesResponse> {
-        return from(this.getEventContext(roomId, eventId))
+        return from(this.getEventContext(roomId, eventId, {limit: 1}))
             .pipe(mergeMap(it => this.loadEvents({
                 roomId,
                 from: it.start,
@@ -191,8 +195,12 @@ export class Matrix {
         return this.restClient.sendStateEvent(roomId, stateEvent.type, stateEvent.content, stateEvent.stateKey)
     }
 
-    getEventContext(roomId: string, eventId: string) {
+    getEventContext(
+        roomId: string,
+        eventId: string,
+        params: { limit?: number, filter?: EventsFilter } = {},
+    ) {
         // todo make return observable
-        return this.restClient.getEventContext(roomId, eventId)
+        return this.restClient.getEventContext(roomId, eventId, params)
     }
 }

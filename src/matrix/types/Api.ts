@@ -86,7 +86,6 @@ export interface UnsignedData {
 	prev_sender?: string;
 }
 
-// Todo the spec has a distinction between ClientEvent and ClientEventWithoutRoomID
 export interface MatrixEvent {
 	event_id: string;
 	content: MessageEventContent;
@@ -97,6 +96,10 @@ export interface MatrixEvent {
 	unsigned?: UnsignedData;
 	redacts?: string;
 	_redacted?: boolean;
+	// Todo the spec has a distinction between ClientEvent and ClientEventWithoutRoomID
+	room_id?: string;
+
+	[key: string]: any;
 }
 
 export interface RoomNameEvent extends MatrixEvent {

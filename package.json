@@ -9,6 +9,7 @@
     "dev": "vite",
     "build": "vite build",
     "compile": "tsc",
+    "prepublishOnly": "npm run compile",
     "watch": "tsc --watch",
     "preview": "vite preview",
     "check": "tsc --noEmit && vitest --run",
@@ -38,5 +39,11 @@
     "vite": "^3.1.0",
     "vitest": "^0.25.2",
     "vitest-mock-extended": "^1.0.7"
-  }
+  },
+  "keywords": [
+    "matrix", "react", "rxjs", "matrix-chat", "matrix-org"
+  ],
+  "license": "Apache-2.0",
+  "repository": "Stvad/matrix-rx",
+  "bugs": "https://github.com/Stvad/matrix-rx/issues"
 }

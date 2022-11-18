@@ -1,8 +1,8 @@
-import {describe, expect, it} from 'vitest'
+import {beforeEach, describe, expect, it} from 'vitest'
 import {mock} from 'vitest-mock-extended'
 
 import {EventSubject, Matrix, RoomSubject} from '../../src'
-import {firstValueFrom, of} from 'rxjs'
+import {firstValueFrom, lastValueFrom, of, take, tap} from 'rxjs'
 import * as roomData from '../data/sync/room'
 import {loadEventsResponse, sinceEventId} from '../data/sync/events'
 
@@ -34,17 +34,27 @@ describe('RoomSubject', () => {
         // but if there is no match on initial response - we should throw
 
         const matrix = mock<Matrix>()
-        matrix.sync.mockReturnValue(of(roomData.initial))
-        matrix.loadEventsSince.mockReturnValue(of(loadEventsResponse))
+        beforeEach(() => {
+            matrix.sync.mockReturnValue(of(roomData.initial))
+            matrix.loadEventsSince.mockReturnValue(of(loadEventsResponse))
+        })
 
 
-        it('should derive the name of the room', async () => {
+        it('should derive the name of the room from initial sync message', async () => {
             const subject = new RoomSubject({id: roomData.id, matrix})
 
             const room = await firstValueFrom(subject)
             expect(room.name).toBe('General6')
         })
 
+        it('name should not be overridden by the arrival of new messages', async () => {
+            matrix.sync.mockReturnValue(of(roomData.initial, roomData.incremental))
+
+            const subject = new RoomSubject({id: roomData.id, matrix})
+
+            const room = await lastValueFrom(subject.pipe(tap(it => console.log('tick')),  take(2)))
+            expect(room.name).toBe('General6')
+        })
 
         it('should not have duplicate events, event though various input sources may have them', async () => {
             const subject = new RoomSubject({id: roomData.id, matrix, sinceEventId: sinceEventId})

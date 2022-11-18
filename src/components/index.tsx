@@ -28,7 +28,7 @@ function RoomList({rooms, setRoomId}: { rooms: RoomHierarchyData[], setRoomId: (
                     setRoomId(r.id)
                 }}
             >
-                {r?.name}
+                {r?.name || 'DM: ' + r.id}
                 {Boolean(r?.children?.length) && <RoomList rooms={r.children} setRoomId={setRoomId}/>}
             </div>)}
     </div>

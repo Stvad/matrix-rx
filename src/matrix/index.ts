@@ -54,6 +54,7 @@ export class Matrix {
     }
 
     // todo probably by default get very generic info about rooms - no messages
+    // todo make filter a parameter
     sync(roomId?: string): Observable<SyncResponse> {
         const callSync = (syncToken?: string): Observable<SyncResponse> => {
             const filter = syncToken ? getIncrementalFilter(roomId) : getInitialFilter(roomId)

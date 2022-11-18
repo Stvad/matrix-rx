@@ -31,6 +31,8 @@ export function MessageContent({event}: { event: AggregatedEvent }) {
 /**
  * Eventually want to move from "irc" layout to "slack" layout
  * but that requires "display aggregation" to work well, don't want to deal with that yet
+ *
+ * partition by sender & time? (and maybe look up the rules that Element is currently using)
  */
 export function Event({observable}: EventProps) {
     const event = useObservableValue(observable)

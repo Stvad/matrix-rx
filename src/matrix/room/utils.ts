@@ -9,7 +9,7 @@ function getRoomName(events: MatrixEvent[]) {
 
     // @ts-ignore https://github.com/microsoft/TypeScript/issues/48829
     const nameEvent = events.findLast(e => e.type === 'm.room.name') as RoomNameEvent | undefined
-    return nameEvent?.content.name ?? 'DM guess: ' + events[0].sender
+    return nameEvent?.content.name ?? undefined
 }
 
 function getAutocompleteSuggestions(events: MatrixEvent[]) {

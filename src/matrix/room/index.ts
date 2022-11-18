@@ -133,6 +133,12 @@ export class RoomSubject extends ReplaySubject<AugmentedRoomData> {
 
     override subscribe(...args: any[]): Subscription {
         /**
+         * It's important to create this subscription first before subscribing to underlying observable
+         * Otherwise the first return value is potentially lost (not delivered to actual subscriber)
+         */
+        const subjectSubscription = super.subscribe(...args)
+
+        /**
          * Subscribe to underlying observable only someone is subscribing to this subject
          *
          * does this need to be more complicated (see `share` operator)?
@@ -142,7 +148,7 @@ export class RoomSubject extends ReplaySubject<AugmentedRoomData> {
             this.subscription = this.roomStateObservable().subscribe(this)
         }
 
-        return super.subscribe(...args)
+        return subjectSubscription
     }
 
 
@@ -215,9 +221,6 @@ export class RoomSubject extends ReplaySubject<AugmentedRoomData> {
         // delay eventSources subscriptions until sync has emitted at least once
         const sharedSync = sync.pipe(share())
         const delayedEventSources = eventSources.map(it => sharedSync.pipe(switchMap(() => it)))
-
-        // todo bc the sync event arrives first we'll have duplicate with "since" events
-        // Need to dedup that or initialize 'since' after sync returns
 
         return merge(sharedSync, ...delayedEventSources).pipe(
             /**

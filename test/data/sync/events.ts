@@ -1,6 +1,11 @@
 import {RoomMessagesResponse} from '../../../src'
 
 export const sinceEventId = "$OH8NoPhsZVjzH63kVN-RlaCmoyFbWcUxh8khNJi8-v0"
+export const since = {
+    eventId: sinceEventId,
+    timestamp: 1666745332451,
+}
+
 export const loadEventsResponse: RoomMessagesResponse = {
     "chunk": [
         {
@@ -8,7 +13,7 @@ export const loadEventsResponse: RoomMessagesResponse = {
                 "body": "the careful textbooks measure",
                 "msgtype": "m.text"
             },
-            "origin_server_ts": 1666745332451,
+            "origin_server_ts": since.timestamp,
             "room_id": "!AtyuVyqNFWfJMwlbwR:matrix.org",
             "sender": "@metavlad:matrix.org",
             "type": "m.room.message",

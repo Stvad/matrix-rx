@@ -67,10 +67,18 @@ export interface RoomHierarchyData extends RoomData, CommonRoomAugmentations {
 
 type AugmentedRoomWithNoMessages = Omit<AugmentedRoomData, 'messages'>
 
-interface RoomSubjectParams {
+export interface EventsSince {
+    /**
+     * eventually eventId can become optional via https://github.com/matrix-org/matrix-spec-proposals/pull/3030
+     */
+    eventId: string
+    timestamp: number
+}
+
+export interface RoomSubjectParams {
     id: string
     matrix: Matrix
-    sinceEventId?: string
+    since?: EventsSince
     eventBus?: Omnibus<RawEvent | AggregatedEvent>
     controlBus?: Omnibus<ControlEvent>
 }
@@ -101,11 +109,13 @@ export class RoomSubject extends ReplaySubject<AugmentedRoomData> {
     // can probably be replaced with a subject
     private readonly controlBus: Omnibus<ControlEvent> = new Omnibus()
 
+    private readonly since?: EventsSince
+
     constructor(
         {
             id,
             matrix,
-            sinceEventId,
+            since,
             eventBus = new Omnibus(),
             controlBus = new Omnibus(),
         }: RoomSubjectParams,
@@ -115,8 +125,9 @@ export class RoomSubject extends ReplaySubject<AugmentedRoomData> {
         this.matrix = matrix
         this.eventBus = eventBus
         this.controlBus = controlBus
+        this.since = since
 
-        this._observable = this.createObservable(sinceEventId)
+        this._observable = this.createObservable(since?.eventId)
     }
 
     private createObservable(sinceEventId?: string) {
@@ -172,11 +183,8 @@ export class RoomSubject extends ReplaySubject<AugmentedRoomData> {
          * I'm not happy how this is a separate observable even though it's relying and dependent on the room data
          * or like it's the same observable but subscription management is confusing
          */
-        /**
-         * todo this also rn only emits top level events, but not relations (e.g. reactions)
-         * bc of how underlying observer partitions them
-         */
         return this._observable.pipe(map(it => it.events), mergeAll())
+            .pipe(filter(it => it.value.origin_server_ts > (this.since?.timestamp ?? 0)))
     }
 
     public watchEventValues(): Observable<AggregatedEvent> {

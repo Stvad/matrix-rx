@@ -13,7 +13,7 @@ import {getIncrementalFilter, getInitialFilter} from './sync-filter'
 import RestClient from './api/RestClient'
 import {Credentials} from './types/Credentials'
 import {buildRoomHierarchy, extractRoomsInfo, mergeNestedRooms} from './room/utils'
-import {RoomHierarchyData, RoomSubject} from './room'
+import {EventsSince, RoomHierarchyData, RoomSubject} from './room'
 
 const syncTimeout = 10000
 
@@ -156,8 +156,8 @@ export class Matrix {
             })))
     }
 
-    room(roomId: string, sinceEventId?: string): RoomSubject {
-        return new RoomSubject({id: roomId, matrix: this, sinceEventId})
+    room(roomId: string, since?: EventsSince): RoomSubject {
+        return new RoomSubject({id: roomId, matrix: this, since})
     }
 
     roomList(): Observable<RoomHierarchyData[]> {

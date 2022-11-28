@@ -1,5 +1,72 @@
-import {SyncResponse} from '../../../src'
+import {MatrixEvent, SyncResponse} from '../../../src'
+
 export const id = '!test-room:matrix.org'
+
+export const lastEventId = "$8BtqJ2UCX7X0xBauNd1GDOXS1GaB-8RDMnuPURn3MsI"
+export const secondToLastEventId = "$7Uirl17NaVWCD3u8XmW4MEbxfRz1KWNM-1R3PAkjjeU"
+
+export const lastEvent: MatrixEvent = {
+    "content": {
+        "body": "hmm",
+        "format": "org.matrix.custom.html",
+        "formatted_body": "<p dir=\"ltr\"><span>hmm</span></p>",
+        "msgtype": "m.text"
+    },
+    "origin_server_ts": 1668265599886,
+    "sender": "@metavlad:matrix.org",
+    "type": "m.room.message",
+    "unsigned": {
+        "age": 326902747,
+        "transaction_id": "textSat Nov 12 2022 16:06:39 GMT+0100 (Central European Standard Time)"
+    },
+    "event_id": lastEventId
+}
+
+export const secondToLastEvent: MatrixEvent = {
+    "content": {
+        "body": " * new! 2",
+        "format": "org.matrix.custom.html",
+        "formatted_body": " * new! 2",
+        "m.new_content": {
+            "body": "new! 2",
+            "format": "org.matrix.custom.html",
+            "formatted_body": "new! 2",
+            "msgtype": "m.text",
+            "org.matrix.msc1767.message": [
+                {
+                    "body": "new! 2",
+                    "mimetype": "text/plain"
+                },
+                {
+                    "body": "new! 2",
+                    "mimetype": "text/html"
+                }
+            ]
+        },
+        "m.relates_to": {
+            "event_id": "$bTgfLbl_EL8AL8eTS-QelbVgByhBXjkyauN74i08b4E",
+            "rel_type": "m.replace"
+        },
+        "msgtype": "m.text",
+        "org.matrix.msc1767.message": [
+            {
+                "body": " * new! 2",
+                "mimetype": "text/plain"
+            },
+            {
+                "body": " * new! 2",
+                "mimetype": "text/html"
+            }
+        ]
+    },
+    "origin_server_ts": 1668253564597,
+    "sender": "@metavlad:matrix.org",
+    "type": "m.room.message",
+    "unsigned": {
+        "age": 338938036
+    },
+    "event_id": secondToLastEventId
+}
 
 export const initial: SyncResponse = {
     "next_batch": "s3452768126_757284974_5374094_1720948964_1750370107_3752927_660162646_5803511097_0",
@@ -483,7 +550,7 @@ export const initial: SyncResponse = {
                                                 "age": 338947525,
                                                 "m.relations": {
                                                     "m.replace": {
-                                                        "event_id": "$7Uirl17NaVWCD3u8XmW4MEbxfRz1KWNM-1R3PAkjjeU",
+                                                        "event_id": secondToLastEventId,
                                                         "origin_server_ts": 1668253564597,
                                                         "sender": "@metavlad:matrix.org"
                                                     }
@@ -840,7 +907,7 @@ export const initial: SyncResponse = {
                                 "age": 338947525,
                                 "m.relations": {
                                     "m.replace": {
-                                        "event_id": "$7Uirl17NaVWCD3u8XmW4MEbxfRz1KWNM-1R3PAkjjeU",
+                                        "event_id": secondToLastEventId,
                                         "origin_server_ts": 1668253564597,
                                         "sender": "@metavlad:matrix.org"
                                     }
@@ -848,67 +915,8 @@ export const initial: SyncResponse = {
                             },
                             "event_id": "$bTgfLbl_EL8AL8eTS-QelbVgByhBXjkyauN74i08b4E"
                         },
-                        {
-                            "content": {
-                                "body": " * new! 2",
-                                "format": "org.matrix.custom.html",
-                                "formatted_body": " * new! 2",
-                                "m.new_content": {
-                                    "body": "new! 2",
-                                    "format": "org.matrix.custom.html",
-                                    "formatted_body": "new! 2",
-                                    "msgtype": "m.text",
-                                    "org.matrix.msc1767.message": [
-                                        {
-                                            "body": "new! 2",
-                                            "mimetype": "text/plain"
-                                        },
-                                        {
-                                            "body": "new! 2",
-                                            "mimetype": "text/html"
-                                        }
-                                    ]
-                                },
-                                "m.relates_to": {
-                                    "event_id": "$bTgfLbl_EL8AL8eTS-QelbVgByhBXjkyauN74i08b4E",
-                                    "rel_type": "m.replace"
-                                },
-                                "msgtype": "m.text",
-                                "org.matrix.msc1767.message": [
-                                    {
-                                        "body": " * new! 2",
-                                        "mimetype": "text/plain"
-                                    },
-                                    {
-                                        "body": " * new! 2",
-                                        "mimetype": "text/html"
-                                    }
-                                ]
-                            },
-                            "origin_server_ts": 1668253564597,
-                            "sender": "@metavlad:matrix.org",
-                            "type": "m.room.message",
-                            "unsigned": {
-                                "age": 338938036
-                            },
-                            "event_id": "$7Uirl17NaVWCD3u8XmW4MEbxfRz1KWNM-1R3PAkjjeU"
-                        },
-                        {
-                            "content": {
-                                "body": "hmm",
-                                "format": "org.matrix.custom.html",
-                                "formatted_body": "<p dir=\"ltr\"><span>hmm</span></p>",
-                                "msgtype": "m.text"
-                            },
-                            "origin_server_ts": 1668265599886,
-                            "sender": "@metavlad:matrix.org",
-                            "type": "m.room.message",
-                            "unsigned": {
-                                "age": 326902747,
-                                "transaction_id": "textSat Nov 12 2022 16:06:39 GMT+0100 (Central European Standard Time)"
-                            },
-                            "event_id": "$8BtqJ2UCX7X0xBauNd1GDOXS1GaB-8RDMnuPURn3MsI"
-                        }
+                        secondToLastEvent,
+                        lastEvent
                     ],
                     "prev_batch": "t149-3409681023_757284974_5374094_1720948964_1750370107_3752927_660162646_5803511097_0",
                     "limited": true

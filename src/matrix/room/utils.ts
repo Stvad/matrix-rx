@@ -17,7 +17,13 @@ function getAutocompleteSuggestions(events: MatrixEvent[]) {
     const configEvent = events.findLast(
         (e: MatrixEvent) => e.type === 'matrix-rx.autocomplete',
     ) as AutocompleteConfigurationEvent | undefined
-    return configEvent?.content.pages ?? []
+    const pages = configEvent?.content.pages ?? []
+
+    // this is one way to reduce the event size 🤔
+    return pages.map(it => ({
+        ...it,
+        url: configEvent?.content.urlPattern.replace('{{id}}', it.id),
+    }))
 }
 
 const getChildRelationEvents = (loadedRoomEvents: MatrixEvent[]) =>

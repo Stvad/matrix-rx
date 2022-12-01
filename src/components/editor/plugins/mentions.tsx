@@ -175,10 +175,9 @@ export function MentionsPlugin({suggestions}: MentionsPluginProps): JSX.Element 
                     (result) =>
                         new MentionTypeaheadOption({
                             id: result.id,
-                            text: result.text,
+                            text: ' [[' + result.text + ']] ', // todo this whole thing should be passed in
                             details: result.summary,
-                            // todo hardcoded
-                            url: `https://roamresearch.com/#/app/tools/page/${result.id}`,
+                            url: result.url!,
                         }),
                 )
                 .slice(0, SUGGESTION_LIST_LENGTH_LIMIT),

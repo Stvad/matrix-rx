@@ -21,7 +21,7 @@ export function Login(props: LoginProps) {
     // todo hot to do logout well with this?
     // maybe encapsulate in special hook or something
 
-    const [credentials, setCredentials] = useLocalStorageState<Credentials>('matrix-credentials')
+    const [credentials, setCredentials] = useLocalStorageState<Credentials>('matrix.credentials')
     const [client, setClient] = useState<Matrix>()
 
     const [userNameInput, userName] = useInput<string>({placeholder: 'Username'})
@@ -48,7 +48,7 @@ export function Login(props: LoginProps) {
                     alert('Required fields are missing')
                     return
                 }
-                
+
                 const newCreds = await login({userId: userName, password: password, server: server})
                 setCredentials(newCreds)
                 props.onLogin?.(newCreds)

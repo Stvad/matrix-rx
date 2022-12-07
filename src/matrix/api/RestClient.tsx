@@ -1,4 +1,11 @@
-import { GenericRestClient, ApiCallOptions } from 'simplerestclients';
+import {
+	DefaultErrorHandler,
+	ErrorHandlingType,
+	SimpleWebRequestBase,
+	WebErrorResponse,
+	WebRequestOptions,
+} from 'simplerestclients'
+
 import {
 	AuthParam_,
 	DirectorySearch_,
@@ -27,17 +34,26 @@ import {
 import {AuthenticatedGenericRestClient} from './AuthenticatedGenericRestClient'
 import {PREFIX_REST} from './shared'
 
-export default class RestClient extends GenericRestClient {
-	constructor(private accessToken: string, homeServer: string, prefix: string) {
-		super('https://' + homeServer + prefix);
-	}
-
-	protected override _getHeaders(options: ApiCallOptions): { [key: string]: string } {
-		const headers = super._getHeaders(options);
-
-		if (this.accessToken) {
-			headers['Authorization'] = 'Bearer ' + this.accessToken;
+const putOptions: WebRequestOptions = {
+	retries: 5,
+	customErrorHandler(webRequest: SimpleWebRequestBase, errorResponse: WebErrorResponse): ErrorHandlingType {
+        // an issue with taking this at face value is that it seems that it's not for the particular request, but for
+        // the overall set of them
+		// though can be ok, as we can await while pre request is running
+		if (errorResponse.statusCode === 429) {
+			const retryAfter = errorResponse.body.retry_after_ms
+			if (retryAfter) {
+				console.log('Got 429, sleeping for', retryAfter, errorResponse)
+                setTimeout(() => {
+					console.log('retrying ')
+                    webRequest.resumeRetrying()
+                }, retryAfter)
+				return ErrorHandlingType.PauseUntilResumed
+			}
 		}
+		return DefaultErrorHandler(webRequest, errorResponse)
+	}
+}
 
 export default class RestClient extends AuthenticatedGenericRestClient {
 	constructor(accessToken: string, homeServer: string) {
@@ -133,7 +149,7 @@ export default class RestClient extends AuthenticatedGenericRestClient {
 		content: StateEventContent,
 		stateKey?: string
 	): Promise<void> {
-		return this.performApiPut<void>('rooms/' + roomId + '/state/' + type + '/' + stateKey, content);
+		return this.performApiPut<void>('rooms/' + roomId + '/state/' + type + '/' + stateKey, content, putOptions);
 	}
 
 	public sendReadReceipt(roomId: string, eventId: string): Promise<void> {

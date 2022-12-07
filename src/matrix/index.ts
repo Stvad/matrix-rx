@@ -1,5 +1,5 @@
 import {catchError, EMPTY, expand, from, map, mergeMap, Observable, of, reduce, scan, shareReplay, tap} from 'rxjs'
-import {ApiClient, PREFIX_REST} from './api/ApiClient'
+import {ApiClient} from './api/ApiClient'
 import {ajax, AjaxCreationMethod} from 'rxjs/internal/ajax/ajax'
 import {
     EventsFilter,
@@ -14,6 +14,8 @@ import RestClient from './api/RestClient'
 import {Credentials} from './types/Credentials'
 import {buildRoomHierarchy, extractRoomsInfo, mergeNestedRooms} from './room/utils'
 import {EventsSince, RoomHierarchyData, RoomSubject} from './room'
+import {PREFIX_REST} from './api/shared'
+import {MediaClient} from './api/MediaClient'
 
 const syncTimeout = 10000
 
@@ -48,7 +50,7 @@ export class Matrix {
     constructor(
         private credentials: Credentials,
         private restrx: AjaxCreationMethod = ajax,
-        private restClient: RestClient = new RestClient(credentials.accessToken, credentials.homeServer, PREFIX_REST),
+        private restClient: RestClient = new RestClient(credentials.accessToken, credentials.homeServer),
         private baseUrl: string = `https://${credentials.homeServer}${PREFIX_REST}`,
     ) {
     }
@@ -206,5 +208,12 @@ export class Matrix {
     ) {
         // todo make return observable
         return this.restClient.getEventContext(roomId, eventId, params)
+    }
+
+    /** todo also seems dumb to manually do delegation for every method
+     * maybe look into automatic delegation or maybe allow people acess to underlying lower level clients
+     */
+    uploadFile(file: File): Promise<{ content_uri: string }> {
+        return new MediaClient(this.credentials.accessToken, this.credentials.homeServer).uploadFile(file)
     }
 }

@@ -25,12 +25,13 @@ import { RoomSummary } from '../types/RoomSummary'
 import {User} from '../types/User'
 import {Credentials} from '../types/Credentials'
 import AsyncStorage from '../../core/AsyncStorage'
+import {MediaClient} from './MediaClient'
 
 export class ApiClient {
 	public credentials!: Credentials;
 
 	public async login(userId: string, password: string, server: string) {
-		const restClient = new RestClient('', server, PREFIX_REST);
+		const restClient = new RestClient('', server);
 
 		const data: LoginParam_ = {
 			identifier: {
@@ -42,11 +43,6 @@ export class ApiClient {
 			password: password,
 		};
 
-		// this.stopSync();
-		// this.clearNextSyncToken();
-		// await this.clearStorage().catch(_error => null);
-		// DataStore.clearRoomSummaryList();
-
 		const response = await restClient.login(data)
 
 		this.credentials = {
@@ -57,8 +53,6 @@ export class ApiClient {
 			homeServer: server,
 		};
 
-		// void this.storeCredentials(this.credentials)
-		// void this.storeLastUserId()
 		return this.credentials
 	}
 
@@ -68,7 +62,7 @@ export class ApiClient {
 		session?: string,
 		oldPassword?: string
 	): Promise<unknown> {
-		const restClient = new RestClient(this.credentials.accessToken, this.credentials.homeServer, PREFIX_REST);
+		const restClient = new RestClient(this.credentials.accessToken, this.credentials.homeServer);
 
 		let auth: LoginParam_;
 
@@ -99,7 +93,7 @@ export class ApiClient {
 		emailAddress: string,
 		sendAttempt: number
 	): Promise<EmailTokenResponse_> {
-		const restClient = new RestClient('', server, PREFIX_REST);
+		const restClient = new RestClient('', server);
 
 		const data = {
 			client_secret: clientSecret,
@@ -118,7 +112,7 @@ export class ApiClient {
 		session?: string,
 		param?: { sid: string; client_secret: string } | string
 	): Promise<LoginResponse_> {
-		const restClient = new RestClient('', server, PREFIX_REST);
+		const restClient = new RestClient('', server);
 
 		let auth: AuthParam_ | undefined;
 		if (session) {
@@ -150,7 +144,7 @@ export class ApiClient {
 
 
 	public deleteAccount(type?: LoginParamType, password?: string, session?: string): Promise<unknown> {
-		const restClient = new RestClient(this.credentials.accessToken, this.credentials.homeServer, PREFIX_REST);
+		const restClient = new RestClient(this.credentials.accessToken, this.credentials.homeServer);
 
 		let auth: LoginParam_;
 
@@ -177,13 +171,13 @@ export class ApiClient {
 	// pushers
 
 	public getPushers(): Promise<PusherGetResponse> {
-		const restClient = new RestClient(this.credentials.accessToken, this.credentials.homeServer, PREFIX_REST);
+		const restClient = new RestClient(this.credentials.accessToken, this.credentials.homeServer);
 
 		return restClient.getPushers();
 	}
 
 	public setEmailPusher(wantPusher: boolean, emailAddress: string): Promise<void> {
-		const restClient = new RestClient(this.credentials.accessToken, this.credentials.homeServer, PREFIX_REST);
+		const restClient = new RestClient(this.credentials.accessToken, this.credentials.homeServer);
 
 		const pusher: PusherParam = {
 			append: false,
@@ -200,13 +194,13 @@ export class ApiClient {
 	}
 
 	public muteRoomNotifications(roomId: string, muted: boolean): void {
-		const restClient = new RestClient(this.credentials.accessToken, this.credentials.homeServer, PREFIX_REST);
+		const restClient = new RestClient(this.credentials.accessToken, this.credentials.homeServer);
 
 		restClient.muteRoomNotifications(roomId, muted).catch(_error => null);
 	}
 
 	public getPushRules(): Promise<PushRulesGetResponse> {
-		const restClient = new RestClient(this.credentials.accessToken, this.credentials.homeServer, PREFIX_REST);
+		const restClient = new RestClient(this.credentials.accessToken, this.credentials.homeServer);
 
 		return restClient.getPushRules();
 	}
@@ -214,19 +208,19 @@ export class ApiClient {
 	// restClient
 
 	public joinRoom(roomId: string): Promise<void> {
-		const restClient = new RestClient(this.credentials.accessToken, this.credentials.homeServer, PREFIX_REST);
+		const restClient = new RestClient(this.credentials.accessToken, this.credentials.homeServer);
 
 		return restClient.joinRoom(roomId);
 	}
 
 	public leaveRoom(roomId: string): Promise<void> {
-		const restClient = new RestClient(this.credentials.accessToken, this.credentials.homeServer, PREFIX_REST);
+		const restClient = new RestClient(this.credentials.accessToken, this.credentials.homeServer);
 
 		return restClient.leaveRoom(roomId);
 	}
 
 	public inviteToRoom(roomId: string, userId: string): Promise<void> {
-		const restClient = new RestClient(this.credentials.accessToken, this.credentials.homeServer, PREFIX_REST);
+		const restClient = new RestClient(this.credentials.accessToken, this.credentials.homeServer);
 
 		return restClient.inviteToRoom(roomId, userId);
 	}
@@ -239,7 +233,7 @@ export class ApiClient {
 		topic?: string,
 		isNotepad?: boolean
 	): Promise<{ room_id: string }> {
-		const restClient = new RestClient(this.credentials.accessToken, this.credentials.homeServer, PREFIX_REST);
+		const restClient = new RestClient(this.credentials.accessToken, this.credentials.homeServer);
 
 		let options: NewRoomOptions_;
 		if (type === 'direct') {
@@ -303,7 +297,7 @@ export class ApiClient {
 		options: { limit: number; filter: { generic_search_term: string } },
 		server: string
 	): Promise<GetPublicRoomsResponse_> {
-		const restClient = new RestClient(this.credentials.accessToken, this.credentials.homeServer, PREFIX_REST);
+		const restClient = new RestClient(this.credentials.accessToken, this.credentials.homeServer);
 
 		return restClient.getPublicRooms(options, server);
 	}
@@ -314,7 +308,7 @@ export class ApiClient {
 		content: StateEventContent,
 		stateKey?: string
 	): Promise<void> {
-		const restClient = new RestClient(this.credentials.accessToken, this.credentials.homeServer, PREFIX_REST);
+		const restClient = new RestClient(this.credentials.accessToken, this.credentials.homeServer);
 
 		return restClient.sendStateEvent(roomId, type, content, stateKey);
 	}
@@ -329,7 +323,7 @@ export class ApiClient {
 			contains_url: true,
 		};
 
-		const restClient = new RestClient(this.credentials.accessToken, this.credentials.homeServer, PREFIX_REST);
+		const restClient = new RestClient(this.credentials.accessToken, this.credentials.homeServer);
 
 		const response = await restClient
 			.getRoomMessages(roomId, messageCountAdd, 'b', from, '', filter)
@@ -357,13 +351,13 @@ export class ApiClient {
 		// 	return Promise.resolve();
 		// }
 
-		const restClient = new RestClient(this.credentials.accessToken, this.credentials.homeServer, PREFIX_REST);
+		const restClient = new RestClient(this.credentials.accessToken, this.credentials.homeServer);
 
 		return restClient.sendReadReceipt(roomId, eventId);
 	}
 
 	public async getRoomMembers(roomId: string, onlyJoined: boolean): Promise<{ [id: string]: User }> {
-		const restClient = new RestClient(this.credentials.accessToken, this.credentials.homeServer, PREFIX_REST);
+		const restClient = new RestClient(this.credentials.accessToken, this.credentials.homeServer);
 
 		const members: { [id: string]: User } = {};
 
@@ -401,67 +395,67 @@ export class ApiClient {
 	}
 
 	public sendMessage(roomId: string, messageContent: MessageEventContent, tempId: string): Promise<void> {
-		const restClient = new RestClient(this.credentials.accessToken, this.credentials.homeServer, PREFIX_REST);
+		const restClient = new RestClient(this.credentials.accessToken, this.credentials.homeServer);
 
 		return restClient.sendMessage(roomId, messageContent, tempId);
 	}
 
 	public getPreviewUrl(url: string): Promise<PreviewUrl_> {
-		const restClient = new RestClient(this.credentials.accessToken, this.credentials.homeServer, PREFIX_MEDIA);
+		const restClient = new MediaClient(this.credentials.accessToken, this.credentials.homeServer);
 
 		return restClient.getPreviewUrl(url)!;
 	}
 
 	public getUserProfile(userId: string): Promise<{ displayname: string; avatar_url: string }> {
-		const restClient = new RestClient(this.credentials.accessToken, this.credentials.homeServer, PREFIX_REST);
+		const restClient = new RestClient(this.credentials.accessToken, this.credentials.homeServer);
 
 		return restClient.getUserProfile(userId);
 	}
 
 	public get3pid(): Promise<{ threepids: [{ medium: string; address: string }] }> {
-		const restClient = new RestClient(this.credentials.accessToken, this.credentials.homeServer, PREFIX_REST);
+		const restClient = new RestClient(this.credentials.accessToken, this.credentials.homeServer);
 
 		return restClient.get3pid();
 	}
 
 	public setProfileDisplayName(userId: string, displayName: string): Promise<void> {
-		const restClient = new RestClient(this.credentials.accessToken, this.credentials.homeServer, PREFIX_REST);
+		const restClient = new RestClient(this.credentials.accessToken, this.credentials.homeServer);
 
 		return restClient.setProfileDisplayName(userId, displayName);
 	}
 
 	public setProfileAvatarUrl(userId: string, avatarUrl: string): Promise<void> {
-		const restClient = new RestClient(this.credentials.accessToken, this.credentials.homeServer, PREFIX_REST);
+		const restClient = new RestClient(this.credentials.accessToken, this.credentials.homeServer);
 
 		return restClient.setProfileAvatarUrl(userId, avatarUrl);
 	}
 
 	public getPresence(userId: string): Promise<{ last_active_ago: number }> {
-		const restClient = new RestClient(this.credentials.accessToken, this.credentials.homeServer, PREFIX_REST);
+		const restClient = new RestClient(this.credentials.accessToken, this.credentials.homeServer);
 
 		return restClient.getPresence(userId);
 	}
 
 	public getMatrixVersions(): Promise<unknown> {
-		const restClient = new RestClient(this.credentials.accessToken, this.credentials.homeServer, '');
+		const restClient = new RestClient(this.credentials.accessToken, this.credentials.homeServer);
 
 		return restClient.getMatrixVersions();
 	}
 
 	public getHomeserverInfo(): Promise<unknown> {
-		const restClient = new RestClient(this.credentials.accessToken, this.credentials.homeServer, '');
+		const restClient = new RestClient(this.credentials.accessToken, this.credentials.homeServer);
 
 		return restClient.getHomeserverInfo();
 	}
 
 	public reportMessage(roomId: string, eventId: string): Promise<void> {
-		const restClient = new RestClient(this.credentials.accessToken, this.credentials.homeServer, PREFIX_REST);
+		const restClient = new RestClient(this.credentials.accessToken, this.credentials.homeServer);
 
 		return restClient.reportMessage(roomId, eventId);
 	}
 
 	public redactMessage(roomId: string, eventId: string): Promise<void> {
-		const restClient = new RestClient(this.credentials.accessToken, this.credentials.homeServer, PREFIX_REST);
+		const restClient = new RestClient(this.credentials.accessToken, this.credentials.homeServer);
 
 		const transactionId = 'redact' + Date.now();
 
@@ -469,13 +463,13 @@ export class ApiClient {
 	}
 
 	public searchUser(searchTerm: string): Promise<DirectorySearch_> {
-		const restClient = new RestClient(this.credentials.accessToken, this.credentials.homeServer, PREFIX_REST);
+		const restClient = new RestClient(this.credentials.accessToken, this.credentials.homeServer);
 
 		return restClient.searchUser(searchTerm);
 	}
 
 	public kickMember(roomId: string, userId: string): Promise<void> {
-		const restClient = new RestClient(this.credentials.accessToken, this.credentials.homeServer, PREFIX_REST);
+		const restClient = new RestClient(this.credentials.accessToken, this.credentials.homeServer);
 
 		return restClient.kickMember(roomId, userId);
 	}

@@ -1,25 +1,31 @@
 import { GenericRestClient, ApiCallOptions } from 'simplerestclients';
 import {
-	PreviewUrl_,
+	AuthParam_,
+	DirectorySearch_,
+	EmailTokenResponse_,
+	EventContext,
+	EventsFilter,
+	GetJoinedMembersResponse_,
+	GetPublicRoomsResponse_,
+	GetRoomMembersResponse_,
 	LoginParam_,
 	LoginResponse_,
-	PusherGetResponse,
-	EmailTokenResponse_,
-	AuthParam_,
-	PusherParam,
-	NewRoomOptions_,
-	GetPublicRoomsResponse_,
 	MatrixEvent,
+	MessageEventContent,
+	NewRoomOptions_,
+	PreviewUrl_,
+	PusherGetResponse,
+	PusherParam,
+	PushRuleKind,
+	PushRuleScope,
+	PushRulesGetResponse,
 	StateEventContent,
 	StateEventType,
-	GetJoinedMembersResponse_,
-	GetRoomMembersResponse_,
-	MessageEventContent,
 	SyncFilter,
 	SyncResponse,
-	PushRulesGetResponse,
-	DirectorySearch_, PushRuleKind, PushRuleScope, EventContext, EventsFilter,
 } from '../types/Api'
+import {AuthenticatedGenericRestClient} from './AuthenticatedGenericRestClient'
+import {PREFIX_REST} from './shared'
 
 export default class RestClient extends GenericRestClient {
 	constructor(private accessToken: string, homeServer: string, prefix: string) {
@@ -33,7 +39,9 @@ export default class RestClient extends GenericRestClient {
 			headers['Authorization'] = 'Bearer ' + this.accessToken;
 		}
 
-		return headers;
+export default class RestClient extends AuthenticatedGenericRestClient {
+	constructor(accessToken: string, homeServer: string) {
+		super(accessToken, homeServer, PREFIX_REST)
 	}
 
 	public login(data: LoginParam_): Promise<LoginResponse_> {
@@ -256,11 +264,11 @@ export default class RestClient extends GenericRestClient {
         and include additional server information
         */
 
-		return this.performApiGet<unknown>('/_matrix/client/versions');
+        return this.performApiGet<unknown>('/_matrix/client/versions', {excludeEndpointUrl: true})
 	}
 
 	public getHomeserverInfo(): Promise<unknown> {
-		return this.performApiGet<unknown>('/_matrix/federation/v1/version');
+		return this.performApiGet<unknown>('/_matrix/federation/v1/version', {excludeEndpointUrl: true});
 	}
 
 	// not used yet

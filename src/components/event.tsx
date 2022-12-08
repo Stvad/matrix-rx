@@ -35,7 +35,8 @@ function MessageSender({event, fullUserName = false}: { event: AggregatedEvent, 
     return <Box
         className="message-sender"
         fontWeight={'bold'}
-        marginBottom={'0.5em'}
+        marginBottom={'0.1em'}
+        marginTop={'0.3em'}
     >
         {sender}
     </Box>

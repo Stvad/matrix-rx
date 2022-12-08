@@ -81,5 +81,5 @@ matrix.sync().subscribe((syncResponse: SyncResponse) => {
 You can see me using the above code in the context of the React app in the [src/DemoApp](./src/DemoApp.tsx).
 
 This is currently very much dev focused and not trying to be a full-fledged Matrix client.  
-That said you can try the current version of the client assembled from those React components at https://sparkly-semolina-f47de2.netlify.app
+That said you can try the current version of the client assembled from those React components at https://matrix-rx.netlify.app
 

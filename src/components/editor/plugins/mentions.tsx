@@ -175,7 +175,7 @@ export function MentionsPlugin({suggestions}: MentionsPluginProps): JSX.Element 
                     (result) =>
                         new MentionTypeaheadOption({
                             id: result.id,
-                            text: ' [[' + result.text + ']] ', // todo this whole thing should be passed in
+                            text: '[[' + result.text + ']]', // todo this whole thing should be passed in
                             details: result.summary,
                             url: result.url!,
                         }),

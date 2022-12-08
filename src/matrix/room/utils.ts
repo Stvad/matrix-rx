@@ -1,5 +1,5 @@
 import {MatrixEvent, RoomData, RoomNameEvent} from '../types/Api'
-import {AutocompleteConfigurationEvent} from '../extensions/autocomplete'
+import {AutocompleteConfigurationEvent, AutocompleteSuggestion} from '../extensions/autocomplete'
 import {EventSubject} from '../event'
 import {CommonRoomAugmentations, InternalAugmentedRoom, RoomHierarchyData, TimelineGap} from './index'
 
@@ -12,17 +12,27 @@ function getRoomName(events: MatrixEvent[]) {
     return nameEvent?.content.name ?? undefined
 }
 
-function getAutocompleteSuggestions(events: MatrixEvent[]) {
-    // @ts-ignore https://github.com/microsoft/TypeScript/issues/48829
-    const configEvent = events.findLast(
+function getAutocompleteEvents(events: MatrixEvent[]) {
+    const configEvents = events.filter(
         (e: MatrixEvent) => e.type === 'matrix-rx.autocomplete',
-    ) as AutocompleteConfigurationEvent | undefined
-    const pages = configEvent?.content.pages ?? []
+    ) as unknown as AutocompleteConfigurationEvent[]
+
+    const dedupeByStateKey = (events: AutocompleteConfigurationEvent[]) =>
+        [...new Map(events.map(it => [it.state_key, it])).values()]
+
+    return dedupeByStateKey(configEvents)
+}
+
+function getAutocompleteSuggestions(events: MatrixEvent[]) {
+    const configEvents = getAutocompleteEvents(events)
+    if (configEvents.length === 0) return []
+
+    const pages = configEvents.flatMap(it => it.content.pages)
 
     // this is one way to reduce the event size 🤔
     return pages.map(it => ({
         ...it,
-        url: configEvent?.content.urlPattern.replace('{{id}}', it.id),
+        url: configEvents[0]?.content?.urlPattern?.replace('{{id}}', it.id),
     }))
 }
 
@@ -105,19 +115,28 @@ const fieldMergers = {
         [...x.events, ...(y?.events ?? [])].sort((a, b) => a.value.origin_server_ts - b.value.origin_server_ts),
     _rawEvents: (x: { _rawEvents: MatrixEvent[] }, y: { _rawEvents: MatrixEvent[] }) =>
         [...x._rawEvents, ...(y?._rawEvents ?? [])].sort((a, b) => a.origin_server_ts - b.origin_server_ts),
+    autocompleteSuggestions: (initialSuggestions: AutocompleteSuggestion[], newSuggestions: AutocompleteSuggestion[]) => {
+        const dedupeById = (suggestions: AutocompleteSuggestion[]) =>
+            [...new Map(suggestions.map(it => [it.id, it])).values()]
+
+        return dedupeById([...initialSuggestions, ...newSuggestions])
+    },
 }
 
 export const mergeRoom = <T extends CommonRoomAugmentations, N extends Partial<CommonRoomAugmentations>>(
     aggregate: T,
     newData: N,
-    fieldMerger: { [id: string]: any } = {events: fieldMergers.events},
+    fieldMerger: { [id: string]: any } = {
+        events: fieldMergers.events,
+        autocompleteSuggestions: fieldMergers.autocompleteSuggestions,
+    },
 ): T => {
     const mergedFields = Object.fromEntries(
         Object.keys(fieldMerger)
             .map(it => [it,
                 fieldMerger[it](aggregate, newData)]))
 
-    const allKeys = Object.keys(newData) as (keyof N)[]
+    const allKeys = Object.keys(newData) as (keyof N & keyof T)[]
     const nonEmptyKeys = allKeys.filter(it => !isEmpty(newData[it]))
     const newFields = Object.fromEntries(nonEmptyKeys.map(it => [it, newData[it]]))
 

@@ -198,7 +198,7 @@ export class Matrix {
         roomId: string,
         stateEvent: StateEvent,
     ) {
-        return this.restClient.sendStateEvent(roomId, stateEvent.type, stateEvent.content, stateEvent.stateKey)
+        return this.restClient.sendStateEvent(roomId, stateEvent.type, stateEvent.content, stateEvent.state_key)
     }
 
     getEventContext(

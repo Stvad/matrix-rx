@@ -333,7 +333,7 @@ export interface StateEventContent {
 export interface StateEvent {
 	type: StateEventType;
 	content: any;
-	stateKey?: string;
+	state_key?: string;
 }
 
 export interface GetJoinedMembersResponse_ {

@@ -5,13 +5,11 @@ import {ChakraProvider} from '@chakra-ui/react'
 
 function DemoApp() {
     return (
-        <div className="App">
-            <ChakraProvider>
-                <Login>
-                    <MainChatWindow/>
-                </Login>
-            </ChakraProvider>
-        </div>
+        <ChakraProvider>
+            <Login>
+                <MainChatWindow/>
+            </Login>
+        </ChakraProvider>
     )
 }
 

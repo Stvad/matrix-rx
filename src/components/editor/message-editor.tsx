@@ -13,6 +13,7 @@ import {MentionsPlugin} from './plugins/mentions'
 import {AugmentedRoomData} from '../../matrix/room'
 import {debounce} from '../../core/utils'
 import {KeyboardShortcutPlugin} from './plugins/keyboard-shortcuts'
+import {Flex} from '@chakra-ui/react'
 
 const textMessage = (text: string) => ({
     msgtype: 'm.text',
@@ -50,11 +51,13 @@ export function MessageEditor({room}: MessageEditorProps) {
         , [])
 
     return (
-        <div
+        <Flex
             className="message-editor"
-            css={{
-                display: 'flex',
-            }}
+            // maxHeight={'30vw'}
+            border={'1px solid'}
+            borderColor={'gray.200'}
+            padding={'0.5em'}
+            borderRadius={'0.5em'}
         >
             <Editor
                 emitEditor={setEditor}
@@ -70,6 +73,6 @@ export function MessageEditor({room}: MessageEditorProps) {
             />
             <button onClick={sendMessage}>Send
             </button>
-        </div>
+        </Flex>
     )
 }

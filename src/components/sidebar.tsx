@@ -1,6 +1,5 @@
 //sidebar props extending div props
 import {
-    Button,
     Drawer,
     DrawerBody,
     DrawerCloseButton,
@@ -23,7 +22,6 @@ export const Sidebar = (props: SidebarProps) => {
     return <>
         <IconButton
             icon={<HamburgerIcon w={5} h={5}/>}
-            // colorScheme="blackAlpha"
             variant="outline"
             onClick={onOpen}
             position={'absolute'}
@@ -31,10 +29,11 @@ export const Sidebar = (props: SidebarProps) => {
             left={'0.5rem'}
             aria-label={'Show rooms'}
         />
+
         <Drawer
             isOpen={isOpen}
-            placement="left"
             onClose={onClose}
+            placement="left"
         >
             <DrawerOverlay/>
             <DrawerContent>

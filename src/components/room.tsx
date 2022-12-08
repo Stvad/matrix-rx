@@ -3,6 +3,7 @@ import {useEffect, useState} from 'react'
 import {AugmentedRoomData, RoomSubject} from '../matrix/room'
 import {Event} from './event'
 import {MessageEditor} from './editor/message-editor'
+import {Flex, Spacer} from '@chakra-ui/react'
 
 interface RoomProps {
     roomId: string
@@ -29,11 +30,11 @@ export function Room({roomId}: RoomProps) {
         return <div>Loading...</div>
     }
 
-    return <div
+    return <Flex
         className={'room'}
-        css={{
-            width: '100%',
-        }}
+        direction={'column'}
+        width={'100%'}
+        padding={'1rem'}
     >
         <div
             className="roomName"
@@ -59,6 +60,7 @@ export function Room({roomId}: RoomProps) {
         >
             {room?.messages?.map(it => <Event key={it.value.event_id} observable={it}/>)}
         </div>
+        <Spacer/>
         {room && <MessageEditor room={room}/>}
-    </div>
+    </Flex>
 }

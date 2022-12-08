@@ -1,5 +1,6 @@
 import {useObservableValue} from '../core/observable'
 import {AggregatedEvent, EventSubject} from '../matrix/event'
+import {Box} from '@chakra-ui/react'
 
 export interface EventProps {
     observable: EventSubject
@@ -28,6 +29,18 @@ export function MessageContent({event}: { event: AggregatedEvent }) {
     >{event?.content.body}</div>
 }
 
+function MessageSender({event, fullUserName = false}: { event: AggregatedEvent, fullUserName?: boolean }) {
+    const localName = event?.sender?.split(':')[0]
+    const sender = fullUserName ? event?.sender : localName
+    return <Box
+        className="message-sender"
+        fontWeight={'bold'}
+        marginBottom={'0.5em'}
+    >
+        {sender}
+    </Box>
+}
+
 /**
  * Eventually want to move from "irc" layout to "slack" layout
  * but that requires "display aggregation" to work well, don't want to deal with that yet
@@ -48,16 +61,10 @@ export function Event({observable}: EventProps) {
                 <div
                     css={{
                         display: 'flex',
-                        alignItems: 'center',
+                        flexDirection: 'column',
                     }}
                 >
-                    <div
-                        className="message-sender"
-                        css={{
-                            fontWeight: 'bold',
-                        }}
-                    >{event?.sender}</div>
-                    :
+                    <MessageSender event={event}/>
                     <MessageContent event={event}/>
                 </div>
             </div>

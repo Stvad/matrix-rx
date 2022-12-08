@@ -22,6 +22,7 @@ import {EditorState, LexicalEditor} from 'lexical'
 import {BubbleUpEditorPlugin} from './plugins/emit-editor'
 import {MentionNode} from './nodes/mention'
 import LexicalErrorBoundary from '@lexical/react/LexicalErrorBoundary'
+import {useOnMobile} from '../../core/react'
 
 function Placeholder() {
     return <div className="editor-placeholder">Message...</div>
@@ -59,12 +60,13 @@ interface EditorProps {
 }
 
 export function Editor({onChange, emitEditor, additionalPlugins}: EditorProps) {
+    const onMobile = useOnMobile()
     return (
         <LexicalComposer initialConfig={editorConfig}>
             <div
                 className="editor-container"
             >
-                <ToolbarPlugin/>
+                {!onMobile && <ToolbarPlugin/>}
                 <div className="editor-inner">
                     <RichTextPlugin
                         contentEditable={<ContentEditable className="editor-input"/>}

@@ -1,4 +1,5 @@
 import {useState} from 'react'
+import {useMediaQuery} from '@chakra-ui/react'
 
 export const useLocalStorageState = <T>(key: string, defaultValue?: T) => {
     const [state, setState] = useState(() => {
@@ -12,3 +13,6 @@ export const useLocalStorageState = <T>(key: string, defaultValue?: T) => {
     }
     return [state, wrappedSetState]
 }
+
+
+export const useOnMobile = () => useMediaQuery('(max-width: 800px)')[0]

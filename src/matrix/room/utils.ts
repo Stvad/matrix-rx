@@ -115,11 +115,11 @@ const fieldMergers = {
         [...x.events, ...(y?.events ?? [])].sort((a, b) => a.value.origin_server_ts - b.value.origin_server_ts),
     _rawEvents: (x: { _rawEvents: MatrixEvent[] }, y: { _rawEvents: MatrixEvent[] }) =>
         [...x._rawEvents, ...(y?._rawEvents ?? [])].sort((a, b) => a.origin_server_ts - b.origin_server_ts),
-    autocompleteSuggestions: (initialSuggestions: AutocompleteSuggestion[], newSuggestions: AutocompleteSuggestion[]) => {
+    autocompleteSuggestions: (aggregate: CommonRoomAugmentations, newData: CommonRoomAugmentations) => {
         const dedupeById = (suggestions: AutocompleteSuggestion[]) =>
             [...new Map(suggestions.map(it => [it.id, it])).values()]
 
-        return dedupeById([...initialSuggestions, ...newSuggestions])
+        return dedupeById([...aggregate.autocompleteSuggestions, ...newData.autocompleteSuggestions])
     },
 }
 

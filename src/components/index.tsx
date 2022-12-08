@@ -5,6 +5,7 @@ import {RoomHierarchyData} from '../matrix/room'
 import {useLocalStorageState} from '../core/react'
 import {RoomList} from './room-list'
 import {Room} from './room'
+import {Sidebar} from './sidebar'
 
 export function MainChatWindow() {
     const [rooms, setRooms] = useState<RoomHierarchyData[]>([])
@@ -20,7 +21,9 @@ export function MainChatWindow() {
                 width: '100%',
             }}
         >
-            <RoomList rooms={rooms} setRoomId={setRoomId}/>
+            <Sidebar>
+                <RoomList rooms={rooms} setRoomId={setRoomId}/>
+            </Sidebar>
             {roomId ? <Room roomId={roomId}/> : <div>No room selected</div>}
         </div>
     )

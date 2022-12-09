@@ -38,6 +38,7 @@
     "@types/react-dom": "^18.0.6",
     "@vitejs/plugin-react": "^2.1.0",
     "@vitest/coverage-c8": "^0.25.2",
+    "rxjs-spy": "^8.0.2",
     "typescript": "^4.6.4",
     "vite": "^3.1.0",
     "vitest": "^0.25.2",

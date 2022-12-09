@@ -221,11 +221,6 @@ export class RoomSubject extends ReplaySubject<AugmentedRoomData> {
                 ...it,
                 messages: it.events.filter(it => it.value.type === 'm.room.message'),
             })),
-
-            catchError(error => {
-                console.log('roomsubject error: ', error)
-                return of(error)
-            }),
         )
     }
 

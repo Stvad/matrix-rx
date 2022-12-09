@@ -1,4 +1,4 @@
-import {catchError, EMPTY, expand, from, map, mergeMap, Observable, of, reduce, scan, shareReplay, tap} from 'rxjs'
+import {catchError, EMPTY, expand, from, map, mergeMap, Observable, reduce, scan, shareReplay, tap} from 'rxjs'
 import {ApiClient} from './api/ApiClient'
 import {ajax, AjaxCreationMethod} from 'rxjs/internal/ajax/ajax'
 import {
@@ -74,14 +74,19 @@ export class Matrix {
                 } : {}),
             })
 
-            return this.restrx.getJSON(`${this.baseUrl}sync?` + params.toString())
+
+            return this.restrx.getJSON<SyncResponse>(`${this.baseUrl}sync?` + params.toString())
+                .pipe(catchError((err, caught) => {
+                    // todo consider adding limit to retries & delay between them
+                    console.error('Error on calling sync. Retrying', err)
+                    return caught
+                }))
         }
         /**
          * todo handle 'gaps' in the timeline
          * https://spec.matrix.org/v1.4/client-server-api/#:~:text=%E2%80%9Climited%E2%80%9D%20timeline%20is%20returned%2C%20containing%20only%20the%20most%20recent%20message%20events.%20a%20state%20%E2%80%9Cdelta%E2%80%9D%20is%20also%20returned%2C%20summarising%20any%20state%20changes%20in%20the%20omitted%20part%20of%20the%20timeline.%20the%20client%20may%20therefore%20end%20up%20with%20%E2%80%9Cgaps
          */
 
-        // todo add retry
         return callSync().pipe(expand(r => callSync(r.next_batch)))
     }
 
@@ -169,12 +174,6 @@ export class Matrix {
             scan(mergeNestedRooms),
             map(buildRoomHierarchy),
             shareReplay(1),
-
-            // todo
-            catchError(error => {
-                console.log('room li error: ', error)
-                return of(error)
-            }),
         )
     }
 

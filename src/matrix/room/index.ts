@@ -159,9 +159,16 @@ export class RoomSubject extends ReplaySubject<AugmentedRoomData> {
             this.subscription = this.roomStateObservable().subscribe(this)
         }
 
+        const unsubscribeFromSourceWhenNotObserved = () => {
+            if (!this.observed) {
+                this.subscription?.unsubscribe()
+                this.subscription = undefined
+            }
+        }
+        subjectSubscription.add(unsubscribeFromSourceWhenNotObserved)
+
         return subjectSubscription
     }
-
 
     /**
      * todo: if user calls this a few times in a quick succession, it'll load the same events multiple times

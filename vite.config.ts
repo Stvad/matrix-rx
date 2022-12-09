@@ -1,3 +1,4 @@
+/// <reference types="vitest" />
 import {defineConfig} from 'vite'
 import react from '@vitejs/plugin-react'
 
@@ -11,5 +12,11 @@ export default defineConfig({
     })],
     build: {
         target: 'es2022',
+    },
+    test: {
+        deps: {
+            // https://github.com/chakra-ui/chakra-ui/issues/6783
+            fallbackCJS: true,
+        },
     },
 })

@@ -1,9 +1,9 @@
 import {useMatrixClient} from './context'
 import {useEffect, useState} from 'react'
 import {AugmentedRoomData, RoomSubject} from '../matrix/room'
-import {Event} from './event'
 import {MessageEditor} from './editor/message-editor'
-import {Flex, Spacer, Spinner} from '@chakra-ui/react'
+import {Flex, Heading, Spacer, Spinner} from '@chakra-ui/react'
+import {MessageList} from './message-list'
 
 interface RoomProps {
     roomId: string
@@ -24,12 +24,13 @@ export function Room({roomId}: RoomProps) {
         return () => sub.unsubscribe()
     }, [roomId])
 
-    console.log({room})
     if (!room) {
-        return <Spinner
-            size={'xl'}
-            margin={'auto'}
-        />
+        return <Spinner size={'xl'} margin={'auto'}/>
+    }
+
+    const loadMoreMessages = () => {
+        const token = room?.gaps?.back?.token
+        token && room$?.loadOlderEvents(token)
     }
 
     return <Flex
@@ -38,31 +39,19 @@ export function Room({roomId}: RoomProps) {
         width={'100%'}
         padding={'1rem'}
     >
-        <div
+        <Heading
+            size={'lg'}
             className="roomName"
-            css={{
-                fontSize: '1.5em',
-                fontWeight: 'bold',
-                textAlign: 'center',
-            }}
+            textAlign={'center'}
         >
             {room?.name}
-        </div>
+        </Heading>
 
-        <button onClick={() => {
-            const token = room?.gaps?.back?.token
-            token && room$?.loadOlderEvents(token)
-        }}>^
-        </button>
-        <div
-            className={'messages'}
-            css={{
-                marginBottom: '1em',
-            }}
-        >
-            {room?.messages?.map(it => <Event key={it.value.event_id} observable={it}/>)}
-        </div>
+        <MessageList messages={room?.messages} load={loadMoreMessages}/>
+
         <Spacer/>
-        {room && <MessageEditor room={room}/>}
+
+        <MessageEditor room={room}/>
     </Flex>
 }
+

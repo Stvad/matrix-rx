@@ -1,12 +1,12 @@
 import {
-    catchError,
+    distinctUntilKeyChanged,
     filter,
     map,
     merge,
     mergeAll,
     mergeMap,
+    MonoTypeOperatorFunction,
     Observable,
-    of,
     ReplaySubject,
     scan,
     share,
@@ -170,13 +170,6 @@ export class RoomSubject extends ReplaySubject<AugmentedRoomData> {
         return subjectSubscription
     }
 
-    /**
-     * todo: if user calls this a few times in a quick succession, it'll load the same events multiple times
-     * I should probably configure the observable to ignore duplicate requests. presumably the params will remain the same
-     *
-     * I also keep wondering if I should do dedup inside pipeline, but that seems like a wrong solution
-     */
-    // todo did pagination start taking longer?
     public loadOlderEvents(from: string, to?: string) {
         // todo meaningful only with active subscription, enforce?
         // or would be even better if I could enforce that structurally (e.g.) you can only call this on a
@@ -326,9 +319,15 @@ export class RoomSubject extends ReplaySubject<AugmentedRoomData> {
                 direction: 'b',
             }).pipe(map(asRoomPartial))
 
+        const removeRepeatedRequests = (): MonoTypeOperatorFunction<ControlEvent> =>
+            distinctUntilKeyChanged('from')
+
         return this.controlBus
             .query((it => it.type === 'loadEventFromPast' && it.roomId === this.id))
-            .pipe(mergeMap(loadEventBatch))
+            .pipe(
+                removeRepeatedRequests(),
+                mergeMap(loadEventBatch)
+            )
     }
 }
 

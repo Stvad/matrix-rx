@@ -173,7 +173,8 @@ export class Matrix {
             map(extractRoomsInfo),
             scan(mergeNestedRooms),
             map(buildRoomHierarchy),
-            shareReplay(1),
+            // todo does this even need to be multicast?
+            shareReplay({bufferSize: 1, refCount: true}),
         )
     }
 

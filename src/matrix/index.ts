@@ -215,4 +215,8 @@ export class Matrix {
     uploadFile(file: File): Promise<{ content_uri: string }> {
         return new MediaClient(this.credentials.accessToken, this.credentials.homeServer).uploadFile(file)
     }
+
+    logout() {
+        return this.restClient.logout()
+    }
 }

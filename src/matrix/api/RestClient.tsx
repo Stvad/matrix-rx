@@ -64,6 +64,10 @@ export default class RestClient extends AuthenticatedGenericRestClient {
 		return this.performApiPost<LoginResponse_>('login', data);
 	}
 
+	public logout(): Promise<void> {
+		return this.performApiPost<void>('logout', {});
+	}
+
 	public register(data: {
 		auth?: AuthParam_;
 		username: string;

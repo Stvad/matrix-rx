@@ -3,7 +3,7 @@ import {useEffect, useState} from 'react'
 import {AugmentedRoomData, RoomSubject} from '../matrix/room'
 import {Event} from './event'
 import {MessageEditor} from './editor/message-editor'
-import {Flex, Spacer} from '@chakra-ui/react'
+import {Flex, Spacer, Spinner} from '@chakra-ui/react'
 
 interface RoomProps {
     roomId: string
@@ -11,7 +11,6 @@ interface RoomProps {
 
 export function Room({roomId}: RoomProps) {
     const client = useMatrixClient()
-    // AugmentedRoomData is not quite right
     const [room, setRoom] = useState<AugmentedRoomData | null>(null)
     const [room$, setRoom$] = useState<RoomSubject | null>(null)
 
@@ -27,7 +26,10 @@ export function Room({roomId}: RoomProps) {
 
     console.log({room})
     if (!room) {
-        return <div>Loading...</div>
+        return <Spinner
+            size={'xl'}
+            margin={'auto'}
+        />
     }
 
     return <Flex

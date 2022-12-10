@@ -1,15 +1,18 @@
-import {Dispatch, InputHTMLAttributes, ReactNode, SetStateAction, useState} from 'react'
+import {Dispatch, ReactNode, SetStateAction, useState} from 'react'
 import {Credentials} from '../matrix/types/Credentials'
 import {login, Matrix} from '../matrix'
 import {useLocalStorageState} from '../core/react'
 import {MatrixContext} from './context'
+import {Button, Center, Flex, Heading, Input, Stack} from '@chakra-ui/react'
+import {InputProps} from '@chakra-ui/input'
 
 type InputValue = string | number | ReadonlyArray<string> | undefined
 
 // todo:low improve on typing
-function useInput<T extends InputValue>(props: InputHTMLAttributes<HTMLInputElement>): [JSX.Element, T | undefined, Dispatch<SetStateAction<InputValue>>] {
+function useInput<T extends InputValue>(props: InputProps): [JSX.Element, T | undefined, Dispatch<SetStateAction<InputValue>>] {
     const [value, setValue] = useState(props.defaultValue)
-    return [<input {...props} value={value} onChange={it=> setValue(it.target.value)} />, value as T | undefined, setValue]
+    return [<Input {...props} value={value}
+                   onChange={it => setValue(it.target.value)}/>, value as T | undefined, setValue]
 }
 
 interface LoginProps {
@@ -18,10 +21,9 @@ interface LoginProps {
 }
 
 export function Login(props: LoginProps) {
-    // todo hot to do logout well with this?
-    // maybe encapsulate in special hook or something
-
-    const [credentials, setCredentials] = useLocalStorageState<Credentials>('matrix.credentials')
+    // todo use a store provide by props
+    const credentialsKey = 'matrix.credentials'
+    const [credentials, setCredentials] = useLocalStorageState<Credentials>(credentialsKey)
     const [client, setClient] = useState<Matrix>()
 
     const [userNameInput, userName] = useInput<string>({placeholder: 'Username'})
@@ -34,25 +36,51 @@ export function Login(props: LoginProps) {
     }
 
     if (client) {
-        return <MatrixContext.Provider value={{client}} {...props}/>
+        return <MatrixContext.Provider
+            value={{
+                client,
+                logout() {
+                    client?.logout()
+                    setCredentials(null)
+                    setClient(undefined)
+                },
+            }}
+            {...props}/>
     }
 
-    return <div>
-        <h1>Login</h1>
-        {userNameInput}
-        {passwordInput}
-        {serverInput}
-        <button
-            onClick={async () => {
-                if (!userName || !password || !server) {
-                    alert('Required fields are missing')
-                    return
-                }
+    const onLogin = async () => {
+        if (!userName || !password || !server) {
+            alert('Required fields are missing')
+            return
+        }
 
-                const newCreds = await login({userId: userName, password: password, server: server})
-                setCredentials(newCreds)
-                props.onLogin?.(newCreds)
-            }}
-        >Login</button>
-    </div>
+        const newCreds = await login({userId: userName, password: password, server: server})
+        setCredentials(newCreds)
+        props.onLogin?.(newCreds)
+    }
+
+    return <Center height={'100%'}>
+        <Flex
+            direction={'column'}
+            margin="auto"
+        >
+            <Heading
+                marginBottom="1rem"
+                textAlign={'center'}
+            >Login</Heading>
+
+            <Stack>
+                {userNameInput}
+                {passwordInput}
+                {serverInput}
+            </Stack>
+
+            <Button
+                marginTop="1rem"
+                colorScheme="blue"
+                onClick={onLogin}
+            >Login
+            </Button>
+        </Flex>
+    </Center>
 }

@@ -1,9 +1,10 @@
 //sidebar props extending div props
 import {
+    Button,
     Drawer,
     DrawerBody,
     DrawerCloseButton,
-    DrawerContent,
+    DrawerContent, DrawerFooter,
     DrawerHeader,
     DrawerOverlay,
     IconButton,
@@ -12,12 +13,14 @@ import {
 import {HamburgerIcon} from '@chakra-ui/icons'
 
 import {BoxProps} from '@chakra-ui/layout'
+import {useMatrixContext} from './context'
 
 interface SidebarProps extends BoxProps {
 }
 
 export const Sidebar = (props: SidebarProps) => {
     const {isOpen, onOpen, onClose} = useDisclosure()
+    const matrixCtx = useMatrixContext()
 
     return <>
         <IconButton
@@ -43,6 +46,9 @@ export const Sidebar = (props: SidebarProps) => {
                 <DrawerBody>
                     {props.children}
                 </DrawerBody>
+                <DrawerFooter>
+                    <Button colorScheme='pink' onClick={() => matrixCtx.logout()}>Logout</Button>
+                </DrawerFooter>
 
             </DrawerContent>
         </Drawer>

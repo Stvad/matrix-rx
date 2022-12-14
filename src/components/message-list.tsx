@@ -1,9 +1,8 @@
-import {UIEvent, useRef} from 'react'
 import {Box} from '@chakra-ui/react'
 import {Event} from './event'
 import {EventSubject} from '../matrix/event'
-import ScrollToBottom from 'react-scroll-to-bottom'
-import {ClassNames, css} from '@emotion/react'
+import ScrollToBottom, {useAtTop} from 'react-scroll-to-bottom'
+import {ClassNames} from '@emotion/react'
 
 interface MessageListProps {
     messages: EventSubject[]
@@ -11,32 +10,28 @@ interface MessageListProps {
 }
 
 export function MessageList({messages, load}: MessageListProps) {
-    const containerRef = useRef<HTMLDivElement | null>(null)
+    function Messages() {
+        const [atTop] = useAtTop()
 
-    function loadMoreMessages(e: UIEvent<HTMLDivElement>) {
-        if (e.currentTarget?.scrollTop !== 0) return
+        // todo:ux this is kind of chaotic rn, figure out a better loading UX
+        if (atTop) load()
 
-        load()
+        return <>{
+            messages?.map(it => <Event key={it.value.event_id} observable={it}/>)
+        }</>
     }
 
-    if (!hasOverflow(containerRef.current)) load()
-
-    return <Box
-        ref={containerRef}
-        className={'messages'}
-        marginBottom="1em"
-        overflow={'auto'}
-        onScroll={(e) => loadMoreMessages(e)}
-    >
-        <ClassNames>
-            {({css}) => (
+    return <ClassNames>
+        {({css}) => (
+            <Box
+                className={'messages'}
+                marginBottom="1em"
+                overflow={'auto'}
+            >
                 <ScrollToBottom className={css`height: 100%`}>
-                    {messages?.map(it => <Event key={it.value.event_id} observable={it}/>)}
+                    {<Messages/>}
                 </ScrollToBottom>
-            )}
-        </ClassNames>
-    </Box>
+            </Box>
+        )}
+    </ClassNames>
 }
-
-const hasOverflow = (current: HTMLDivElement | null) =>
-    current && (current.scrollHeight > current.clientHeight)

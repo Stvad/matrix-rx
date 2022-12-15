@@ -72,6 +72,7 @@ export function getIncrementalFilter(roomId?: string) {
     return filter
 }
 
+// todo:perf ignore autocomplete events if no room is open
 export function getInitialFilter(roomId?: string) {
     const accountFilterRoom_: EventsFilter = {
         limit: 0,

@@ -59,6 +59,8 @@ export function Login(props: LoginProps) {
         props.onLogin?.(newCreds)
     }
 
+    // todo:ux submit on enter
+
     return <Center height={'100%'}>
         <Flex
             direction={'column'}

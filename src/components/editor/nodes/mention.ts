@@ -59,6 +59,7 @@ export class MentionNode extends LinkNode {
         this.__mention = mention
     }
 
+    //todo MentionNode should implement "exportJSON" method to ensure JSON and default HTML serialization works as expected
     // override exportJSON(): SerializedMentionNode {
     //     return {
     //         ...super.exportJSON(),

@@ -169,7 +169,9 @@ export const mergeRoom = <T extends CommonRoomAugmentations, N extends Partial<C
 }
 
 const mergeGapBack = (aggregate: TimelineGap, newData: TimelineGap | undefined) => {
-    if (newData && newData.timestamp < aggregate.timestamp) {
+    if (!newData) return undefined
+
+    if (newData.timestamp < aggregate.timestamp) {
         return newData
     }
     return aggregate

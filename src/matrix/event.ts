@@ -37,7 +37,7 @@ export class EventSubject extends BehaviorSubject<AggregatedEvent> {
     private subscription: Subscription
 
     constructor(
-        private initEvent: MatrixEvent,
+        initEvent: MatrixEvent,
         private bus: Omnibus<RawEvent | AggregatedEvent>,
         private observableRegistry: Map<string, EventSubject>,
     ) {
@@ -58,7 +58,6 @@ export class EventSubject extends BehaviorSubject<AggregatedEvent> {
     }
 
     createObservable(): Observable<AggregatedEvent> {
-        const eventId = this.initEvent.event_id
         const mergeReplaceEvent = (event: AggregatedEvent, edit: AggregatedEvent): AggregatedEvent => {
             const isReplaceEvent = (ev: MatrixEvent): ev is ReplaceEvent =>
                 ev.content['m.relates_to']?.rel_type === 'm.replace'
@@ -91,6 +90,7 @@ export class EventSubject extends BehaviorSubject<AggregatedEvent> {
             }
         }
 
+        const eventId = this.value.event_id
         const eventOfInterest = (it: RawEvent | AggregatedEvent): it is RawEvent => {
             const isRelationship = it.content['m.relates_to']?.event_id === eventId
             return (it.event_id === eventId || isRelationship) && it.kind === 'raw-event'

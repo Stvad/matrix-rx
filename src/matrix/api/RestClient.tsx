@@ -144,7 +144,7 @@ export default class RestClient extends AuthenticatedGenericRestClient {
 	}
 
 	public sendMessage(roomId: string, messageContent: MessageEventContent, transactionId: string): Promise<void> {
-		return this.performApiPut<void>('rooms/' + roomId + '/send/m.room.message/' + transactionId, messageContent);
+		return this.performApiPut<void>(`rooms/${roomId}/send/m.room.message/${transactionId}`, messageContent, putOptions)
 	}
 
 	public sendStateEvent(

@@ -1,19 +1,15 @@
 import {useMatrixClient} from '../context'
 import {useCallback, useState} from 'react'
 import {Editor} from './index'
-import {CLEAR_EDITOR_COMMAND} from 'lexical'
+import {CLEAR_EDITOR_COMMAND, EditorState, LexicalEditor} from 'lexical'
 
 import {$generateHtmlFromNodes} from '@lexical/html'
-import {
-    $convertToMarkdownString,
-    TRANSFORMERS,
-} from '@lexical/markdown'
-import {EditorState, LexicalEditor} from 'lexical'
+import {$convertToMarkdownString, TRANSFORMERS} from '@lexical/markdown'
 import {MentionsPlugin} from './plugins/mentions'
 import {AugmentedRoomData} from '../../matrix/room'
 import {debounce} from '../../core/utils'
 import {KeyboardShortcutPlugin} from './plugins/keyboard-shortcuts'
-import {Flex} from '@chakra-ui/react'
+import {Flex, Spinner} from '@chakra-ui/react'
 
 const textMessage = (text: string) => ({
     msgtype: 'm.text',
@@ -36,9 +32,13 @@ export function MessageEditor({room}: MessageEditorProps) {
     const [html, setHtml] = useState('')
     const [markdown, setMarkdown] = useState('')
     const [editor, setEditor] = useState<LexicalEditor | null>(null)
+    const [sending, setSending] = useState(false)
 
-    const sendMessage = () => {
-        void client.sendMessage(room.id, htmlMessage(html, markdown))
+    const sendMessage = async () => {
+        setSending(true)
+        await client.sendMessage(room.id, htmlMessage(html, markdown))
+        setSending(false)
+
         editor?.dispatchCommand(CLEAR_EDITOR_COMMAND, undefined)
     }
 
@@ -53,7 +53,6 @@ export function MessageEditor({room}: MessageEditorProps) {
     return (
         <Flex
             className="message-editor"
-            // maxHeight={'30vw'}
             border={'1px solid'}
             borderColor={'gray.200'}
             padding={'0.5em'}
@@ -67,12 +66,11 @@ export function MessageEditor({room}: MessageEditorProps) {
                      * Consider deriving metadata for the message from the mentions, etc and attaching it to the message
                      * (like mentioned roam page ids, etc)
                      */
-                    <MentionsPlugin key='page-mentions' suggestions={room.autocompleteSuggestions}/>,
-                    <KeyboardShortcutPlugin key='kb-shortcut' onSendMessage={sendMessage}/>,
+                    <MentionsPlugin key="page-mentions" suggestions={room.autocompleteSuggestions}/>,
+                    <KeyboardShortcutPlugin key="kb-shortcut" onSendMessage={sendMessage}/>,
                 ]}
             />
-            <button onClick={sendMessage}>Send
-            </button>
+            {sending ? <Spinner margin="auto"/> : <button onClick={sendMessage}>Send</button>}
         </Flex>
     )
 }

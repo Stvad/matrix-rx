@@ -6,6 +6,7 @@ import {useLocalStorageState} from '../core/react'
 import {RoomList} from './room-list'
 import {Room} from './room'
 import {Sidebar} from './sidebar'
+import {Box} from '@chakra-ui/react'
 
 export function MainChatWindow() {
     const [rooms, setRooms] = useState<RoomHierarchyData[]>([])
@@ -25,7 +26,10 @@ export function MainChatWindow() {
             <Sidebar>
                 <RoomList rooms={rooms} setRoomId={setRoomId}/>
             </Sidebar>
-            {roomId ? <Room roomId={roomId}/> : <div>No room selected</div>}
+            {roomId ?
+                <Room roomId={roomId}/> :
+                <Box margin="auto">No room selected</Box>
+            }
         </div>
     )
 }

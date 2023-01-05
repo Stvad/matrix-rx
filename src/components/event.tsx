@@ -6,27 +6,32 @@ export interface EventProps {
     observable: EventSubject
 }
 
+const isRedacted = (event: AggregatedEvent) => !event.content.body && event.redacted_because !== undefined
 export function MessageContent({event}: { event: AggregatedEvent }) {
+    const messageContentCss = {
+        marginLeft: '0.5em',
+    }
+
     const sharedProps = {
+        ...messageContentCss,
         className: 'message-content',
     }
+
+    const RedactedMessageContent = () => <Box {...sharedProps} title='Message deleted'>🗑️</Box>
+
+    if (isRedacted(event)) return <RedactedMessageContent/>
+
     if (event.content.format === 'org.matrix.custom.html') {
-        return <div
+        return <Box
             {...sharedProps}
-            css={{
-                marginLeft: '0.5em',
-            }}
             dangerouslySetInnerHTML={{__html: event.content.formatted_body!}}
         />
     }
 
-    return <div
+    return <Box
         {...sharedProps}
-        css={{
-            marginLeft: '0.5em',
-            whiteSpace: 'pre-wrap',
-        }}
-    >{event?.content.body}</div>
+        whiteSpace='pre-wrap'
+    >{event?.content.body}</Box>
 }
 
 function MessageSender({event, fullUserName = false}: { event: AggregatedEvent, fullUserName?: boolean }) {

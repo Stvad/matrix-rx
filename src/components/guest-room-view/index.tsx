@@ -47,12 +47,25 @@ export interface GuestRoomViewProps {
 }
 
 export const JoinRoom = ({roomId}: { roomId: string }) => {
-    // TODO on first join, if you are a guest, matrix.org will ask you to agree to terms of service,
-    //  and will return an error.
-
     const client = useMatrixClient()
+
+    /**
+     * This is potentially idiosyncratic to matrix.org server. Need to test it elsewhere!
+     */
+    async function handleConsentError(error: {body: {errcode: string, error: string, consent_uri: string}}) {
+        console.log('Consent error. Trying to automatically handle it.', error)
+        if (error.body.errcode !== 'M_CONSENT_NOT_GIVEN') throw error
+
+        const consentUri = new URL(error.body.consent_uri)
+        consentUri.searchParams.set('v', '1.0')
+
+        await fetch(consentUri, {method: 'POST', mode: 'no-cors'})
+
+        await client.joinRoom(roomId)
+    }
+
     useEffect(() => {
-        client.joinRoom(roomId).catch(console.error)
+        client.joinRoom(roomId).catch(handleConsentError)
     }, [client])
 
     return null

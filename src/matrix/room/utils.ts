@@ -163,13 +163,13 @@ export const mergeRoom = <T extends CommonRoomAugmentations, N extends Partial<C
             /**
              * We want to have the token associated with the oldest message (retrieved on first sync or on back pagination)
              */
-            back: mergeGapBack(aggregate.gaps.back!, newData?.gaps?.back),
+            back: mergeGapBack(aggregate.gaps.back, newData?.gaps?.back),
         },
     }
 }
 
-const mergeGapBack = (aggregate: TimelineGap, newData: TimelineGap | undefined) => {
-    if (!newData) return undefined
+const mergeGapBack = (aggregate?: TimelineGap, newData?: TimelineGap) => {
+    if (!newData || !aggregate) return undefined
 
     if (newData.timestamp < aggregate.timestamp) {
         return newData

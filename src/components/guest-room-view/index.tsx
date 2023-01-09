@@ -4,7 +4,7 @@ import {useLocalStorageState} from '../../core/react'
 import {Credentials} from '../../matrix/types/Credentials'
 import {Matrix} from '../../matrix'
 import {Room} from '../room'
-import {Box} from '@chakra-ui/react'
+import {Box, Spinner} from '@chakra-ui/react'
 
 const GuestMatrixContext = (props: { children: ReactNode, server: string }) => {
     const [credentials, setCredentials] = useLocalStorageState<Credentials>('matrix.guest.credentials')
@@ -35,7 +35,7 @@ const GuestMatrixContext = (props: { children: ReactNode, server: string }) => {
     }
 
     if (!client) {
-        return <Box>Loading...</Box>
+        return <Spinner size={'xl'} margin={'auto'}/>
     }
 
     return <MatrixContext.Provider value={contextContent} {...props}/>

@@ -1,6 +1,6 @@
 import {useObservableValue} from '../core/observable'
 import {AggregatedEvent, EventSubject} from '../matrix/event'
-import {Box} from '@chakra-ui/react'
+import {Box, Flex} from '@chakra-ui/react'
 import {localName} from '../matrix/utils'
 
 export interface EventProps {
@@ -11,6 +11,14 @@ const isRedacted = (event: AggregatedEvent) => !event.content.body && event.reda
 export function MessageContent({event}: { event: AggregatedEvent }) {
     const messageContentCss = {
         marginLeft: '0.5em',
+    }
+
+    const htmlCss = {
+        blockquote: {
+            borderLeft: '4px solid #ccc',
+            padding: '0 1em',
+            color: '#666',
+        },
     }
 
     const sharedProps = {
@@ -25,6 +33,7 @@ export function MessageContent({event}: { event: AggregatedEvent }) {
     if (event.content.format === 'org.matrix.custom.html') {
         return <Box
             {...sharedProps}
+            css={htmlCss}
             dangerouslySetInnerHTML={{__html: event.content.formatted_body!}}
         />
     }
@@ -57,31 +66,21 @@ export function Event({observable}: EventProps) {
     const event = useObservableValue(observable)
 
     return (
-        <div>
-            <div
-                className="message-body"
-                css={{
-                    display: 'flex',
-                }}
-            >
-                <div
-                    css={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                    }}
-                >
+        <Box>
+            <Flex className="message-body">
+                <Flex direction={'column'}>
                     <MessageSender event={event}/>
                     <MessageContent event={event}/>
-                </div>
-            </div>
-            <div
+                </Flex>
+            </Flex>
+            <Box
                 className={'message-children'}
                 css={{
                     marginLeft: '1em',
                 }}
             >
                 {event?.children?.map(it => <Event key={it.value.event_id} observable={it}/>)}
-            </div>
-        </div>
+            </Box>
+        </Box>
     )
 }

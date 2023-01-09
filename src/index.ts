@@ -11,6 +11,7 @@ export * from './components/context'
 export * from './components/editor'
 export * from './components/room-list'
 export * from './components/room'
+export * from './components/guest-room-view'
 
 export * from './components/editor/message-editor'
 export {useWhileMounted} from './core/observable'

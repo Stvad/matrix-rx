@@ -26,6 +26,7 @@ import {User} from '../types/User'
 import {Credentials} from '../types/Credentials'
 import AsyncStorage from '../../core/AsyncStorage'
 import {MediaClient} from './MediaClient'
+import {loginToCredentials} from './shared'
 
 export class ApiClient {
 	public credentials!: Credentials;
@@ -45,13 +46,7 @@ export class ApiClient {
 
 		const response = await restClient.login(data)
 
-		this.credentials = {
-			userId: userId,
-			userIdFull: response.user_id,
-			accessToken: response.access_token,
-			deviceId: response.device_id,
-			homeServer: server,
-		};
+		this.credentials = loginToCredentials(response);
 
 		return this.credentials
 	}

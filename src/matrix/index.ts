@@ -14,7 +14,7 @@ import RestClient from './api/RestClient'
 import {Credentials} from './types/Credentials'
 import {buildRoomHierarchy, extractRoomsInfo, mergeNestedRooms} from './room/utils'
 import {EventsSince, RoomHierarchyData, RoomSubject} from './room'
-import {PREFIX_REST} from './api/shared'
+import {loginToCredentials, PREFIX_REST} from './api/shared'
 import {MediaClient} from './api/MediaClient'
 
 const syncTimeout = 10000
@@ -45,6 +45,12 @@ export class Matrix {
 
     static fromCredentials(creds: Credentials): Matrix {
         return new Matrix(creds)
+    }
+
+    static async registerAsGuest(server: string) {
+        const loginResponse = await new RestClient('', server).registerAsGuest()
+        const credentials = loginToCredentials(loginResponse)
+        return {credentials, client: Matrix.fromCredentials(credentials)}
     }
 
     constructor(
@@ -219,5 +225,9 @@ export class Matrix {
 
     logout() {
         return this.restClient.logout()
+    }
+
+    joinRoom(roomId: string) {
+        return this.restClient.joinRoom(roomId)
     }
 }

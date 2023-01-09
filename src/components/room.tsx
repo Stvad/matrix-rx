@@ -7,9 +7,11 @@ import {MessageList} from './message-list'
 
 interface RoomProps {
     roomId: string
+    showEditor?: boolean
+    showTitle?: boolean
 }
 
-export function Room({roomId}: RoomProps) {
+export function Room({roomId, showEditor = true, showTitle = true}: RoomProps) {
     const client = useMatrixClient()
     const [room, setRoom] = useState<AugmentedRoomData | null>(null)
     const [room$, setRoom$] = useState<RoomSubject | null>(null)
@@ -39,19 +41,19 @@ export function Room({roomId}: RoomProps) {
         width={'100%'}
         padding={'1rem'}
     >
-        <Heading
+        {showTitle && <Heading
             size={'lg'}
             className="roomName"
             textAlign={'center'}
         >
             {room?.name}
-        </Heading>
+        </Heading>}
 
         <MessageList messages={room?.messages} load={loadMoreMessages}/>
 
         <Spacer/>
 
-        <MessageEditor room={room}/>
+        {showEditor && <MessageEditor room={room}/>}
     </Flex>
 }
 

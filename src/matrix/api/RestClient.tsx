@@ -77,6 +77,12 @@ export default class RestClient extends AuthenticatedGenericRestClient {
 		return this.performApiPost<LoginResponse_>('register?kind=user', data);
 	}
 
+	public registerAsGuest(
+		data: {initial_device_display_name: string} = {initial_device_display_name: 'matrix-rx'}
+	): Promise<LoginResponse_> {
+		return this.performApiPost<LoginResponse_>('register?kind=guest', data);
+	}
+
 	public requestEmailToken(data: {
 		client_secret: string;
 		email: string;

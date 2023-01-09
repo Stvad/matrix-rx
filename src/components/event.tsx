@@ -1,6 +1,7 @@
 import {useObservableValue} from '../core/observable'
 import {AggregatedEvent, EventSubject} from '../matrix/event'
 import {Box} from '@chakra-ui/react'
+import {localName} from '../matrix/utils'
 
 export interface EventProps {
     observable: EventSubject
@@ -35,8 +36,7 @@ export function MessageContent({event}: { event: AggregatedEvent }) {
 }
 
 function MessageSender({event, fullUserName = false}: { event: AggregatedEvent, fullUserName?: boolean }) {
-    const localName = event?.sender?.split(':')[0]
-    const sender = fullUserName ? event?.sender : localName
+    const sender = fullUserName ? event?.sender : localName(event.sender)
     return <Box
         className="message-sender"
         fontWeight={'bold'}

@@ -1,4 +1,4 @@
-import {Dispatch, ReactNode, SetStateAction, useState} from 'react'
+import {Dispatch, ReactNode, SetStateAction, useMemo, useState} from 'react'
 import {Credentials} from '../matrix/types/Credentials'
 import {login, Matrix} from '../matrix'
 import {useLocalStorageState} from '../core/react'
@@ -30,23 +30,20 @@ export function Login(props: LoginProps) {
     const [passwordInput, password] = useInput<string>({placeholder: 'Password', type: 'password'})
     const [serverInput, server] = useInput<string>({placeholder: 'Server', defaultValue: 'matrix.org'})
 
+    const contextContent = useMemo(() => ({
+        client: client!, // ok, because we never return the context if client is null
+        logout() {
+            client?.logout()
+            setCredentials(null)
+            setClient(undefined)
+        },
+    }), [client])
+
     if (credentials && !client) {
-        console.log({credentials})
         setClient(Matrix.fromCredentials(credentials))
     }
 
-    if (client) {
-        return <MatrixContext.Provider
-            value={{
-                client,
-                logout() {
-                    client?.logout()
-                    setCredentials(null)
-                    setClient(undefined)
-                },
-            }}
-            {...props}/>
-    }
+    if (client) return <MatrixContext.Provider value={contextContent} {...props}/>
 
     const onLogin = async () => {
         if (!userName || !password || !server) {

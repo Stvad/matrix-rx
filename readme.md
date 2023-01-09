@@ -38,7 +38,7 @@ matrix.room("room_id").subscribe((room: AugmentedRoomData) => {
     console.log(room.name);
 
     /**
-     * Each message is an Obserable in it's own right.
+     * Each message is an Observable in it's own right.
      * It aggregates event relations and emits a new value with the aggregate state
      *
      * E.g. when message is edited or gets reactions, you'll automatically get
@@ -78,7 +78,14 @@ matrix.sync().subscribe((syncResponse: SyncResponse) => {
 
 ### React components
 
-You can see me using the above code in the context of the React app in the [src/DemoApp](./src/DemoApp.tsx).
+*These should really be split into a separate package, but I'm waiting to do that when people actually complain about it* 
+
+The components use [Chackra UI](https://chakra-ui.com/getting-started) for styling & theming.
+
+#### Example usages
+
+- You can see me using the above code in the context of the React app in the [src/DemoApp](./src/DemoApp.tsx).
+- [Embed Matrix](https://github.com/Stvad/embed-matrix) which allows you to embed Matrix rooms in your website. Is also based on a thin wrapper around this library.
 
 This is currently very much dev focused and not trying to be a full-fledged Matrix client.  
 That said you can try the current version of the client assembled from those React components at https://matrix-rx.netlify.app
